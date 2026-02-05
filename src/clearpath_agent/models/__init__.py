@@ -8,6 +8,15 @@ from .excel_schemas import (
     FocusViewRow,
     JobCustomStatusRow,
 )
+from .intent_schemas import (
+    ConfidenceLevel,
+    ExtractedPhrase,
+    ExtractedStep,
+    ResolutionResult,
+    ResolvedEntity,
+    StructuredIntent,
+    WorkflowMetadata,
+)
 
 __all__ = [
     # Enums
@@ -15,6 +24,7 @@ __all__ = [
     "WidgetType",
     "UserRole",
     "StatusCategory",
+    "ConfidenceLevel",
     # Entity models
     "ActionButton",
     "Widget",
@@ -25,4 +35,11 @@ __all__ = [
     "ActionButtonRow",
     "FocusViewRow",
     "ExcelImportTemplate",
+    # Intent schemas
+    "ExtractedPhrase",
+    "ExtractedStep",
+    "StructuredIntent",
+    "WorkflowMetadata",
+    "ResolvedEntity",
+    "ResolutionResult",
 ]

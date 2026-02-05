@@ -1,0 +1,20 @@
+{
+  "start_time": "2026-02-04 15:03:16.647487",
+  "seed_actions": 29,
+  "seed_widgets": 31,
+  "seed_patterns": 8,
+  "seed_relationships": 26,
+  "prod_files_parsed": 3,
+  "prod_statuses": 2,
+  "prod_actions": 0,
+  "prod_widgets": 0,
+  "patterns_extracted": 0,
+  "validation_errors": 0,
+  "validation_warnings": 0,
+  "embeddings_generated": 67,
+  "vector_records_upserted": 0,
+  "graph_nodes_created": 0,
+  "graph_relationships_created": 0,
+  "end_time": "2026-02-04 15:03:40.737184",
+  "duration": "0:00:24.089697"
+}

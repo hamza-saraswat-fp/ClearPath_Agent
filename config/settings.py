@@ -1,6 +1,5 @@
 """Configuration settings for ClearPath Agent."""
 
-import os
 from functools import lru_cache
 from typing import Optional
 
@@ -21,14 +20,34 @@ class Settings(BaseSettings):
         description="Claude model to use",
     )
 
-    # Supabase
+    # Supabase (Vector Store)
     supabase_url: str = Field(
         ...,
         description="Supabase project URL",
     )
     supabase_key: str = Field(
         ...,
-        description="Supabase API key",
+        description="Supabase API key (service role key recommended)",
+    )
+
+    # Neo4j (Graph Store)
+    neo4j_uri: Optional[str] = Field(
+        default=None,
+        description="Neo4j connection URI",
+    )
+    neo4j_username: str = Field(
+        default="neo4j",
+        description="Neo4j username",
+    )
+    neo4j_password: Optional[str] = Field(
+        default=None,
+        description="Neo4j password",
+    )
+
+    # OpenAI (Embeddings)
+    openai_api_key: Optional[str] = Field(
+        default=None,
+        description="OpenAI API key for embeddings",
     )
 
     # Application settings
@@ -41,10 +60,24 @@ class Settings(BaseSettings):
         description="Logging level",
     )
 
-    # Excel output settings
+    # Output settings
     output_dir: str = Field(
         default="./output",
         description="Directory for generated Excel files",
+    )
+
+    # Ingestion settings
+    skip_vector_store: bool = Field(
+        default=False,
+        description="Skip vector store operations",
+    )
+    skip_graph_store: bool = Field(
+        default=False,
+        description="Skip graph store operations",
+    )
+    dry_run: bool = Field(
+        default=False,
+        description="Run without writing to databases",
     )
 
     class Config:

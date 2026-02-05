@@ -1,0 +1,224 @@
+{
+  "workflow_name": "HVAC Service Call Workflow",
+  "workflow_description": "Standard workflow for HVAC service calls including dispatch, diagnostics, and completion",
+  "job_types": ["HVAC Service", "AC Repair", "Heating Repair"],
+  "steps": [
+    {
+      "step_name": "New",
+      "sequence": 1,
+      "role_mentioned": "dispatcher",
+      "action_phrases": [
+        {
+          "phrase": "assign technician",
+          "context": "Dispatcher assigns a technician to the job",
+          "confidence": 0.95,
+          "suggested_type": "Assign Technician"
+        },
+        {
+          "phrase": "send dispatch notification",
+          "context": "Notify assigned tech of new job",
+          "confidence": 0.9,
+          "suggested_type": "Send Customer Communication"
+        }
+      ],
+      "information_needs": [
+        {
+          "phrase": "customer details",
+          "context": "Need to see customer contact info",
+          "confidence": 0.9,
+          "suggested_type": "customer_info"
+        },
+        {
+          "phrase": "job description",
+          "context": "Initial job request details",
+          "confidence": 0.85,
+          "suggested_type": "job_details"
+        }
+      ],
+      "constraints": []
+    },
+    {
+      "step_name": "Dispatched",
+      "sequence": 2,
+      "role_mentioned": "technician",
+      "action_phrases": [
+        {
+          "phrase": "check in on site",
+          "context": "Tech arrives at customer location",
+          "confidence": 0.95,
+          "suggested_type": "Check In"
+        },
+        {
+          "phrase": "contact customer",
+          "context": "Call customer en route",
+          "confidence": 0.85,
+          "suggested_type": "Call Customer"
+        }
+      ],
+      "information_needs": [
+        {
+          "phrase": "directions to site",
+          "context": "Navigation to customer address",
+          "confidence": 0.9,
+          "suggested_type": "location"
+        },
+        {
+          "phrase": "equipment history",
+          "context": "Previous service records",
+          "confidence": 0.8,
+          "suggested_type": "equipment"
+        }
+      ],
+      "constraints": []
+    },
+    {
+      "step_name": "On Site",
+      "sequence": 3,
+      "role_mentioned": "technician",
+      "action_phrases": [
+        {
+          "phrase": "take photos of equipment",
+          "context": "Document equipment condition",
+          "confidence": 0.95,
+          "suggested_type": "Take Photo"
+        },
+        {
+          "phrase": "fill out diagnostic form",
+          "context": "Complete diagnostic checklist",
+          "confidence": 0.9,
+          "suggested_type": "Fill Out Form"
+        },
+        {
+          "phrase": "create estimate",
+          "context": "Generate repair estimate",
+          "confidence": 0.95,
+          "suggested_type": "Create Estimate"
+        }
+      ],
+      "information_needs": [
+        {
+          "phrase": "service manual",
+          "context": "Equipment documentation",
+          "confidence": 0.75,
+          "suggested_type": "attachments"
+        },
+        {
+          "phrase": "parts pricing",
+          "context": "Price list for parts",
+          "confidence": 0.8,
+          "suggested_type": "price_book"
+        }
+      ],
+      "constraints": []
+    },
+    {
+      "step_name": "Work In Progress",
+      "sequence": 4,
+      "role_mentioned": "technician",
+      "action_phrases": [
+        {
+          "phrase": "add labor time",
+          "context": "Track time spent on repair",
+          "confidence": 0.9,
+          "suggested_type": "Add Labor"
+        },
+        {
+          "phrase": "add parts used",
+          "context": "Record parts consumed",
+          "confidence": 0.9,
+          "suggested_type": "Add Inventory"
+        },
+        {
+          "phrase": "take completion photos",
+          "context": "Document completed work",
+          "confidence": 0.9,
+          "suggested_type": "Take Photo"
+        }
+      ],
+      "information_needs": [
+        {
+          "phrase": "inventory on hand",
+          "context": "Available parts in truck",
+          "confidence": 0.85,
+          "suggested_type": "inventory"
+        },
+        {
+          "phrase": "labor rates",
+          "context": "Hourly rates for billing",
+          "confidence": 0.8,
+          "suggested_type": "price_book"
+        }
+      ],
+      "constraints": []
+    },
+    {
+      "step_name": "Ready for Invoice",
+      "sequence": 5,
+      "role_mentioned": "technician",
+      "action_phrases": [
+        {
+          "phrase": "generate invoice",
+          "context": "Create invoice from estimate",
+          "confidence": 0.95,
+          "suggested_type": "Create Invoice"
+        },
+        {
+          "phrase": "collect signature",
+          "context": "Get customer approval signature",
+          "confidence": 0.95,
+          "suggested_type": "Collect Signature"
+        },
+        {
+          "phrase": "process payment",
+          "context": "Collect payment on site",
+          "confidence": 0.9,
+          "suggested_type": "Process Payment"
+        }
+      ],
+      "information_needs": [
+        {
+          "phrase": "invoice details",
+          "context": "All charges and line items",
+          "confidence": 0.9,
+          "suggested_type": "invoices"
+        }
+      ],
+      "constraints": []
+    },
+    {
+      "step_name": "Completed",
+      "sequence": 6,
+      "role_mentioned": "technician",
+      "action_phrases": [
+        {
+          "phrase": "check out from site",
+          "context": "Mark job as finished",
+          "confidence": 0.95,
+          "suggested_type": "Check Out"
+        },
+        {
+          "phrase": "send completion email",
+          "context": "Email receipt to customer",
+          "confidence": 0.85,
+          "suggested_type": "Send Customer Communication"
+        }
+      ],
+      "information_needs": [
+        {
+          "phrase": "job summary",
+          "context": "Final job details",
+          "confidence": 0.9,
+          "suggested_type": "job_details"
+        }
+      ],
+      "constraints": []
+    }
+  ],
+  "global_constraints": [],
+  "metadata": {
+    "industry": "HVAC",
+    "company_size": "medium",
+    "extraction_model": "claude-3-sonnet",
+    "extraction_timestamp": "2025-02-04T12:00:00Z"
+  }
+}

@@ -20,7 +20,16 @@ dependencies = [
     "anthropic>=0.18.0",
     "supabase>=2.0.0",
     "python-dotenv>=1.0.0",
+    "openai>=1.0.0",
+    "neo4j>=5.0.0",
+    "click>=8.0.0",
+    "rich>=13.0.0",
+    "pyyaml>=6.0.0",
 ]
+
+[project.scripts]
+clearpath-ingest = "clearpath_agent.cli.ingest:main"
+clearpath-build = "clearpath_agent.cli.build:main"
 
 [project.optional-dependencies]
 dev = [

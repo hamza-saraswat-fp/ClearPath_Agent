@@ -1,0 +1,136 @@
+# ClearPath Knowledge Base Ingestion Configuration
+# ================================================
+
+# Seed Data Configuration
+# -----------------------
+# Paths to seed data JSON files containing canonical definitions
+seed_data:
+  actions_file: "seed/actions.json"
+  widgets_file: "seed/widgets.json"
+  status_patterns_file: "seed/status_patterns.json"
+  relationships_file: "seed/relationships.json"
+
+# Production Data Configuration
+# -----------------------------
+# Settings for parsing production Excel workflow files
+production_data:
+  directory: "Clearpath_Prod_Data/"
+  file_patterns:
+    - "*.xlsx"
+    - "*.xls"
+  skip_files:
+    - "~$*.xlsx"  # Temp Excel files created when file is open
+    - "~$*.xls"
+
+# Embedding Configuration
+# -----------------------
+# Settings for generating vector embeddings
+embedding:
+  # OpenAI embedding model (text-embedding-3-small recommended for cost/performance)
+  model: "text-embedding-3-small"
+  # Embedding dimension (1536 for text-embedding-3-small)
+  dimension: 1536
+  # Batch size for API calls (reduce if hitting rate limits)
+  batch_size: 100
+  # Maximum retries for failed API calls
+  max_retries: 3
+  # Cache directory for storing generated embeddings
+  cache_dir: ".embedding_cache"
+
+# Vector Store Configuration (Supabase pgvector)
+# ----------------------------------------------
+# Settings for Supabase vector database
+vector_store:
+  # Prefix for table names (e.g., clearpath_actions, clearpath_widgets)
+  table_prefix: "clearpath_"
+  # Batch size for upsert operations
+  batch_size: 500
+  # Create indexes on first run
+  create_indexes: true
+
+# Graph Store Configuration (Neo4j)
+# ---------------------------------
+# Settings for Neo4j graph database
+graph_store:
+  # Batch size for node/relationship creation
+  batch_size: 500
+  # Strategy for merging seed and production relationship weights:
+  # - "weighted_average": Average of seed and production weights
+  # - "production_only": Use only production-derived weights
+  # - "seed_only": Use only seed-defined weights
+  # - "max": Use the higher of the two weights
+  merge_strategy: "weighted_average"
+  # Minimum relationship weight to store (filter low-confidence patterns)
+  min_relationship_weight: 0.3
+
+# Validation Configuration
+# ------------------------
+# Settings for data validation and deduplication
+validation:
+  # Threshold for fuzzy name matching (0-1, higher = stricter)
+  fuzzy_match_threshold: 0.85
+  # Threshold for semantic embedding similarity (0-1, higher = stricter)
+  semantic_match_threshold: 0.95
+  # Minimum occurrences to include a discovered entity
+  min_frequency: 1
+  # Require manual review for auto-added entities
+  require_manual_review: true
+  # Minimum occurrences to auto-add discovered entity
+  auto_add_threshold: 3
+
+# Pattern Extraction Configuration
+# --------------------------------
+# Settings for extracting patterns from production data
+patterns:
+  # Minimum occurrences for a pattern to be included
+  min_occurrences: 2
+  # Minimum confidence score for co-occurrence patterns (0-1)
+  min_confidence: 0.5
+  # Maximum patterns to store per category
+  max_patterns_per_category: 100
+
+# Logging Configuration
+# ---------------------
+# Settings for logging during ingestion
+logging:
+  # Logging level: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: "INFO"
+  # Log file path (relative to project root)
+  file: "logs/ingestion.log"
+  # Log format (standard Python logging format)
+  format: "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+  # Use structured JSON logging
+  structured: false
+
+# Output Configuration
+# --------------------
+# Settings for ingestion outputs
+output:
+  # Directory for reports and statistics
+  reports_dir: "reports/"
+  # Generate markdown report
+  generate_markdown: true
+  # Generate JSON stats file
+  generate_json: true
+  # Keep detailed validation report
+  keep_validation_report: true
+
+# Environment Variables Reference
+# -------------------------------
+# The following environment variables should be set:
+#
+# Required:
+#   ANTHROPIC_API_KEY - Anthropic API key for Claude
+#   SUPABASE_URL      - Supabase project URL
+#   SUPABASE_KEY      - Supabase API key (service role key recommended)
+#   OPENAI_API_KEY    - OpenAI API key for embeddings
+#
+# Optional (for Neo4j):
+#   NEO4J_URI         - Neo4j connection URI (e.g., neo4j+s://instance.databases.neo4j.io)
+#   NEO4J_USERNAME    - Neo4j username (default: neo4j)
+#   NEO4J_PASSWORD    - Neo4j password
+#
+# Optional (Ingestion):
+#   SKIP_VECTOR_STORE - Skip vector store operations (default: false)
+#   SKIP_GRAPH_STORE  - Skip graph store operations (default: false)
+#   DRY_RUN           - Run without writing to databases (default: false)
