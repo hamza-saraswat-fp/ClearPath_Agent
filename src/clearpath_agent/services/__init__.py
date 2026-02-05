@@ -35,6 +35,9 @@ from .config_validator import ConfigValidator
 from .config_validator import ValidationResult as ConfigValidationResult
 from .entity_resolver import EntityResolver
 
+# Excel Generator (Phase 4)
+from .excel_generator import ExcelGenerator
+
 __all__ = [
     # Production Data Parser
     "ProductionDataParser",
@@ -76,4 +79,6 @@ __all__ = [
     "BuilderPipeline",
     "BuildResult",
     "create_pipeline",
+    # Excel Generator (Phase 4)
+    "ExcelGenerator",
 ]

@@ -5,6 +5,7 @@ format ready for Phase 4 (Excel Generation).
 """
 
 import logging
+from pathlib import Path
 from typing import Optional
 
 from ..models.entities import Status, StatusActionFlow
@@ -366,3 +367,48 @@ class ConfigToExcelConverter:
             "roles_used": [r.value for r in roles_used],
             "status_names": list(status_names),
         }
+
+    def convert_and_generate(
+        self,
+        config: StatusActionFlow,
+        output_path: Optional[Path] = None,
+        overwrite: bool = False,
+    ) -> Path:
+        """Convert config to Excel template and generate the Excel file.
+
+        This is a convenience method that chains the full pipeline:
+        convert → validate → generate Excel file.
+
+        Args:
+            config: The StatusActionFlow configuration to convert
+            output_path: Optional path for the output Excel file
+            overwrite: Whether to overwrite existing files
+
+        Returns:
+            Path to the generated Excel file
+
+        Raises:
+            ValueError: If conversion or validation fails
+            IOError: If file cannot be written
+        """
+        # Import here to avoid circular dependency
+        from .excel_generator import ExcelGenerator
+
+        # Convert to Excel template
+        template = self.convert(config)
+
+        # Validate the template
+        errors = self.validate_excel_template(template)
+        if errors:
+            raise ValueError(
+                f"Template validation failed:\n" + "\n".join(f"  - {e}" for e in errors)
+            )
+
+        # Generate Excel file
+        generator = ExcelGenerator()
+        return generator.generate(
+            template,
+            output_path=output_path,
+            overwrite=overwrite,
+            validate_first=False,  # Already validated above
+        )

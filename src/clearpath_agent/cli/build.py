@@ -49,9 +49,17 @@ def cli():
 )
 @click.option(
     "--excel-output",
+    "-o",
     type=click.Path(path_type=Path),
     default=None,
-    help="Path for Excel template output (JSON format)",
+    help="Path for Excel file output (.xlsx)",
+)
+@click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["json", "excel", "both"]),
+    default="excel",
+    help="Output format: json, excel, or both (default: excel)",
 )
 @click.option(
     "--review",
@@ -99,6 +107,7 @@ def build(
     intent_file: Path,
     output: Optional[Path],
     excel_output: Optional[Path],
+    output_format: str,
     review: bool,
     validate_only: bool,
     strict: bool,
@@ -236,12 +245,19 @@ def build(
             )
             console.print(syntax)
 
-        # Output Excel template
-        if excel_output and result.excel_template:
-            excel_dict = result.excel_template.model_dump(mode="json")
-            with open(excel_output, "w") as f:
-                json.dump(excel_dict, f, indent=2)
-            console.print(f"[green]Excel template saved to:[/green] {excel_output}")
+        # Output Excel file
+        if output_format in ("excel", "both") and result.excel_template:
+            from ..services.excel_generator import ExcelGenerator
+
+            generator = ExcelGenerator()
+            excel_path = excel_output or None
+            generated_path = generator.generate(
+                result.excel_template,
+                output_path=excel_path,
+                overwrite=True,
+                validate_first=False,  # Already validated
+            )
+            console.print(f"[green]✓ Excel template generated:[/green] {generated_path}")
 
         # Print summary
         _print_build_summary(result)
@@ -491,6 +507,128 @@ def preview(config_file: Path):
         summary = editor.get_review_summary(config)
         console.print(summary)
 
+    except Exception as e:
+        console.print(f"\n[bold red]Error: {e}[/bold red]")
+        sys.exit(1)
+
+
+@cli.command()
+@click.option(
+    "--config-file",
+    type=click.Path(exists=True, path_type=Path),
+    required=True,
+    help="Path to configuration JSON file",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Path for Excel output file (default: auto-generated in reports/)",
+)
+@click.option(
+    "--overwrite",
+    is_flag=True,
+    default=False,
+    help="Overwrite existing output file",
+)
+@click.option(
+    "--validate-only",
+    is_flag=True,
+    default=False,
+    help="Validate without generating file",
+)
+def generate_excel(
+    config_file: Path,
+    output: Optional[Path],
+    overwrite: bool,
+    validate_only: bool,
+):
+    """Generate an Excel import file from a configuration JSON.
+
+    Takes a StatusActionFlow configuration JSON and generates
+    a properly formatted Excel file ready for ClearPath import.
+
+    Example:
+
+        clearpath-build generate-excel --config-file config.json
+
+        clearpath-build generate-excel --config-file config.json -o output.xlsx
+
+        clearpath-build generate-excel --config-file config.json --validate-only
+    """
+    console.print("\n[bold blue]Excel Template Generator[/bold blue]\n")
+
+    try:
+        # Load config
+        with open(config_file) as f:
+            config_data = json.load(f)
+
+        from ..models.entities import StatusActionFlow
+        from ..services.config_to_excel import ConfigToExcelConverter
+        from ..services.excel_generator import ExcelGenerator
+
+        # Parse config
+        try:
+            config = StatusActionFlow(**config_data)
+            console.print(f"[green]Loaded configuration:[/green] {config.name}")
+            console.print(f"  Statuses: {len(config.statuses)}")
+            total_buttons = sum(len(s.action_buttons) for s in config.statuses)
+            console.print(f"  Action Buttons: {total_buttons}")
+            console.print()
+        except Exception as e:
+            console.print(f"[bold red]Invalid configuration format: {e}[/bold red]")
+            sys.exit(1)
+
+        # Convert to Excel template
+        converter = ConfigToExcelConverter()
+        template = converter.convert(config)
+
+        # Validate template
+        errors = converter.validate_excel_template(template)
+        if errors:
+            console.print("[yellow]Validation warnings:[/yellow]")
+            for error in errors:
+                console.print(f"  - {error}")
+            console.print()
+
+        # Show summary
+        summary = converter.get_excel_summary(template)
+        console.print("[cyan]Excel Template Summary:[/cyan]")
+        console.print(f"  Statuses: {summary['total_statuses']}")
+        console.print(f"  Action Button Rows: {summary['total_button_rows']}")
+        console.print(f"  Focus View Rows: {summary['total_focus_rows']}")
+        console.print(f"  Roles: {', '.join(summary['roles_used'])}")
+        console.print()
+
+        if validate_only:
+            if not errors:
+                console.print("[bold green]Validation passed![/bold green]")
+            else:
+                console.print("[bold yellow]Validation completed with warnings[/bold yellow]")
+            return
+
+        # Generate Excel
+        generator = ExcelGenerator()
+        generated_path = generator.generate(
+            template,
+            output_path=output,
+            overwrite=overwrite,
+            validate_first=False,  # Already validated
+        )
+
+        console.print(f"[bold green]✓ Excel template generated:[/bold green] {generated_path}")
+
+        # Print structure info
+        console.print("\n[cyan]Generated File Structure:[/cyan]")
+        console.print("  Tab 1: Job Custom Status")
+        console.print("  Tab 2: Action Buttons")
+        console.print("  Tab 3: Focus View + Status Instruction")
+        console.print("\n[bold green]Generation complete![/bold green]\n")
+
+    except ValueError as e:
+        console.print(f"\n[bold red]Validation Error: {e}[/bold red]")
+        sys.exit(1)
     except Exception as e:
         console.print(f"\n[bold red]Error: {e}[/bold red]")
         sys.exit(1)

@@ -1,0 +1,453 @@
+{
+  "name": "HVAC Service Call",
+  "description": "Standard workflow for HVAC service appointments",
+  "statuses": [
+    {
+      "name": "New",
+      "category": "Pending",
+      "color": "#6B7280",
+      "sequence": 1,
+      "user_role": "Dispatcher",
+      "action_buttons": [
+        {
+          "action": "Send Customer Communication",
+          "label": "Send Confirmation",
+          "order": 0,
+          "required": false,
+          "form_id": null,
+          "template_id": "sms_confirmation"
+        },
+        {
+          "action": "Add Note",
+          "label": "Add Note",
+          "order": 1,
+          "required": false,
+          "form_id": null,
+          "template_id": null
+        }
+      ],
+      "widgets": [
+        {
+          "widget_type": "Job Title",
+          "order": 0,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Job Status",
+          "order": 1,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Status Instructions",
+          "order": 2,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Customer Contact",
+          "order": 3,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Customer Address",
+          "order": 4,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Scheduled Time",
+          "order": 5,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Action Buttons",
+          "order": 6,
+          "collapsed": false
+        }
+      ],
+      "status_instructions": "1. Review job details\n2. Assign technician\n3. Send confirmation to customer",
+      "display_action_menu": true,
+      "ability_to_change_status": true,
+      "focus_view_enabled": true,
+      "restrict_to_focus_view": false,
+      "next_status": null,
+      "previous_status": null
+    },
+    {
+      "name": "Dispatched",
+      "category": "In Progress",
+      "color": "#3B82F6",
+      "sequence": 2,
+      "user_role": "Service Agent",
+      "action_buttons": [
+        {
+          "action": "Job Timesheet Clock in / out",
+          "label": "Clock In",
+          "order": 0,
+          "required": true,
+          "form_id": null,
+          "template_id": null
+        },
+        {
+          "action": "Send Customer Communication",
+          "label": "Notify On Way",
+          "order": 1,
+          "required": false,
+          "form_id": null,
+          "template_id": "sms_on_way"
+        }
+      ],
+      "widgets": [
+        {
+          "widget_type": "Job Title",
+          "order": 0,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Job Status",
+          "order": 1,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Status Instructions",
+          "order": 2,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Customer Address",
+          "order": 3,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Customer Contact",
+          "order": 4,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Timesheets",
+          "order": 5,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Action Buttons",
+          "order": 6,
+          "collapsed": false
+        }
+      ],
+      "status_instructions": "1. Clock in when arriving\n2. Notify customer you're on the way",
+      "display_action_menu": true,
+      "ability_to_change_status": true,
+      "focus_view_enabled": true,
+      "restrict_to_focus_view": true,
+      "next_status": null,
+      "previous_status": null
+    },
+    {
+      "name": "On Site",
+      "category": "In Progress",
+      "color": "#8B5CF6",
+      "sequence": 3,
+      "user_role": "Service Agent",
+      "action_buttons": [
+        {
+          "action": "Fill Form",
+          "label": "Safety Checklist",
+          "order": 0,
+          "required": true,
+          "form_id": "safety_checklist",
+          "template_id": null
+        },
+        {
+          "action": "Take Photo",
+          "label": "Take Before Photo",
+          "order": 1,
+          "required": false,
+          "form_id": null,
+          "template_id": null
+        },
+        {
+          "action": "Add Note",
+          "label": "Add Note",
+          "order": 2,
+          "required": false,
+          "form_id": null,
+          "template_id": null
+        }
+      ],
+      "widgets": [
+        {
+          "widget_type": "Job Title",
+          "order": 0,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Job Status",
+          "order": 1,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Status Instructions",
+          "order": 2,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Job Description",
+          "order": 3,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Forms",
+          "order": 4,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Files/Photos",
+          "order": 5,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Action Buttons",
+          "order": 6,
+          "collapsed": false
+        }
+      ],
+      "status_instructions": "1. Complete safety checklist\n2. Take before photos\n3. Diagnose the issue",
+      "display_action_menu": true,
+      "ability_to_change_status": true,
+      "focus_view_enabled": true,
+      "restrict_to_focus_view": true,
+      "next_status": null,
+      "previous_status": null
+    },
+    {
+      "name": "Work In Progress",
+      "category": "In Progress",
+      "color": "#F59E0B",
+      "sequence": 4,
+      "user_role": "Service Agent",
+      "action_buttons": [
+        {
+          "action": "Add Material",
+          "label": "Add Parts",
+          "order": 0,
+          "required": false,
+          "form_id": null,
+          "template_id": null
+        },
+        {
+          "action": "Add Labor",
+          "label": "Add Labor",
+          "order": 1,
+          "required": false,
+          "form_id": null,
+          "template_id": null
+        },
+        {
+          "action": "Take Photo",
+          "label": "Take Photo",
+          "order": 2,
+          "required": false,
+          "form_id": null,
+          "template_id": null
+        },
+        {
+          "action": "Add Note",
+          "label": "Add Note",
+          "order": 3,
+          "required": false,
+          "form_id": null,
+          "template_id": null
+        }
+      ],
+      "widgets": [
+        {
+          "widget_type": "Job Title",
+          "order": 0,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Job Status",
+          "order": 1,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Status Instructions",
+          "order": 2,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Materials",
+          "order": 3,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Labor",
+          "order": 4,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Files/Photos",
+          "order": 5,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Action Buttons",
+          "order": 6,
+          "collapsed": false
+        }
+      ],
+      "status_instructions": "1. Complete the repair\n2. Add parts used\n3. Log labor time\n4. Document with photos",
+      "display_action_menu": true,
+      "ability_to_change_status": true,
+      "focus_view_enabled": true,
+      "restrict_to_focus_view": true,
+      "next_status": null,
+      "previous_status": null
+    },
+    {
+      "name": "Ready for Invoice",
+      "category": "In Progress",
+      "color": "#10B981",
+      "sequence": 5,
+      "user_role": "Service Agent",
+      "action_buttons": [
+        {
+          "action": "Create Invoice",
+          "label": "Create Invoice",
+          "order": 0,
+          "required": true,
+          "form_id": null,
+          "template_id": null
+        },
+        {
+          "action": "Collect Signature",
+          "label": "Get Signature",
+          "order": 1,
+          "required": true,
+          "form_id": null,
+          "template_id": null
+        },
+        {
+          "action": "Collect Payment",
+          "label": "Collect Payment",
+          "order": 2,
+          "required": false,
+          "form_id": null,
+          "template_id": null
+        }
+      ],
+      "widgets": [
+        {
+          "widget_type": "Job Title",
+          "order": 0,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Job Status",
+          "order": 1,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Status Instructions",
+          "order": 2,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Line Items",
+          "order": 3,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Invoices",
+          "order": 4,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Signatures",
+          "order": 5,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Payments",
+          "order": 6,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Action Buttons",
+          "order": 7,
+          "collapsed": false
+        }
+      ],
+      "status_instructions": "1. Create invoice\n2. Review with customer\n3. Collect signature\n4. Collect payment",
+      "display_action_menu": true,
+      "ability_to_change_status": true,
+      "focus_view_enabled": true,
+      "restrict_to_focus_view": true,
+      "next_status": null,
+      "previous_status": null
+    },
+    {
+      "name": "Completed",
+      "category": "Completed",
+      "color": "#059669",
+      "sequence": 6,
+      "user_role": "Service Agent",
+      "action_buttons": [
+        {
+          "action": "Job Timesheet Clock in / out",
+          "label": "Clock Out",
+          "order": 0,
+          "required": true,
+          "form_id": null,
+          "template_id": null
+        },
+        {
+          "action": "Request Review",
+          "label": "Request Review",
+          "order": 1,
+          "required": false,
+          "form_id": null,
+          "template_id": null
+        }
+      ],
+      "widgets": [
+        {
+          "widget_type": "Job Title",
+          "order": 0,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Job Status",
+          "order": 1,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Status Instructions",
+          "order": 2,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Job History",
+          "order": 3,
+          "collapsed": false
+        },
+        {
+          "widget_type": "Action Buttons",
+          "order": 4,
+          "collapsed": false
+        }
+      ],
+      "status_instructions": "1. Clock out\n2. Request customer review",
+      "display_action_menu": true,
+      "ability_to_change_status": false,
+      "focus_view_enabled": true,
+      "restrict_to_focus_view": false,
+      "next_status": null,
+      "previous_status": null
+    }
+  ],
+  "is_default": false,
+  "job_types": [
+    "Service Call",
+    "Maintenance",
+    "Repair"
+  ]
+}
