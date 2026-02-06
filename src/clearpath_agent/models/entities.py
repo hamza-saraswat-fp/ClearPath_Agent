@@ -4,15 +4,16 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from .enums import ActionButtonType, StatusCategory, UserRole, WidgetType
+from .enums import StatusCategory, UserRole
 
 
 class ActionButton(BaseModel):
     """Represents an action button configuration for a status."""
 
-    action: ActionButtonType = Field(
+    action: str = Field(
         ...,
-        description="The type of action this button performs",
+        min_length=1,
+        description="The type of action this button performs (pass through from Relational Agent)",
     )
     label: str = Field(
         ...,
@@ -48,9 +49,10 @@ class ActionButton(BaseModel):
 class Widget(BaseModel):
     """Represents a widget in the Focus View."""
 
-    widget_type: WidgetType = Field(
+    widget_type: str = Field(
         ...,
-        description="The type of widget to display",
+        min_length=1,
+        description="The type of widget to display (pass through from Relational Agent)",
     )
     order: int = Field(
         default=0,
@@ -80,6 +82,14 @@ class Status(BaseModel):
         default="#3B82F6",
         pattern=r"^#[0-9A-Fa-f]{6}$",
         description="Hex color code for the status",
+    )
+    icon: str = Field(
+        default="clipboard",
+        description="Icon name for the status (FieldPulse icon)",
+    )
+    status_type: str = Field(
+        default="In Progress",
+        description="Status type for FieldPulse (New, In Progress, completed)",
     )
     sequence: int = Field(
         ...,
@@ -138,11 +148,17 @@ class Status(BaseModel):
 class StatusActionFlow(BaseModel):
     """Represents a complete ClearPath Status Action Flow configuration."""
 
+    workflow_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Custom Job Status Workflow Name (Tab 1 in FieldPulse)",
+    )
     name: str = Field(
         ...,
         min_length=1,
         max_length=100,
-        description="Name of the Status Action Flow",
+        description="Status Action Flow Name (can differ from workflow_name)",
     )
     description: str = Field(
         default="",

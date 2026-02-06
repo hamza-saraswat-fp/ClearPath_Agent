@@ -25,18 +25,19 @@ from .prod_data_parser import (
 from .report_generator import ReportGenerator
 from .vector_store import SearchResult, VectorStore
 
-# ConfigBuilder services (Phase 3)
-from .builder_pipeline import BuilderPipeline, BuildResult, create_pipeline
-from .config_builder import ConfigBuilder
-from .config_defaults import DefaultsProvider
-from .config_editor import ConfigEditor
+# Intent Transformer (Simple StructuredIntent → StatusActionFlow)
+from .intent_transformer import IntentTransformer
+
+# Excel Generation
 from .config_to_excel import ConfigToExcelConverter
+from .excel_generator import ExcelGenerator
+
+# Validation (still useful)
 from .config_validator import ConfigValidator
 from .config_validator import ValidationResult as ConfigValidationResult
-from .entity_resolver import EntityResolver
 
-# Excel Generator (Phase 4)
-from .excel_generator import ExcelGenerator
+# Defaults (still useful for reference)
+from .config_defaults import DefaultsProvider
 
 __all__ = [
     # Production Data Parser
@@ -68,17 +69,14 @@ __all__ = [
     "ValidationSeverity",
     # Report Generator
     "ReportGenerator",
-    # ConfigBuilder Services (Phase 3)
-    "ConfigBuilder",
-    "EntityResolver",
-    "DefaultsProvider",
+    # Intent Transformer (replaces ConfigBuilder)
+    "IntentTransformer",
+    # Excel Generation
+    "ConfigToExcelConverter",
+    "ExcelGenerator",
+    # Validation
     "ConfigValidator",
     "ConfigValidationResult",
-    "ConfigToExcelConverter",
-    "ConfigEditor",
-    "BuilderPipeline",
-    "BuildResult",
-    "create_pipeline",
-    # Excel Generator (Phase 4)
-    "ExcelGenerator",
+    # Defaults
+    "DefaultsProvider",
 ]

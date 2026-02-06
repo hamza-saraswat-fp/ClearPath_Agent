@@ -1,56 +1,45 @@
 """Pydantic schemas for Excel import template validation.
 
-The ClearPath import template has 3 tabs:
-1. Job Custom Status - Defines the statuses in a workflow
-2. Action Buttons - Defines action buttons per status per role
-3. Focus View - Defines widgets and settings per status per role
+The ClearPath import template has 3 tabs matching FieldPulse format:
+1. Job Custom Status - HORIZONTAL layout (all statuses in one row per workflow)
+2. Action Buttons - One row per button per status per role
+3. Focus View + Status Instruction - One row per status per role
 """
 
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
-from .enums import ActionButtonType, StatusCategory, UserRole, WidgetType
+
+class StatusDefinition(BaseModel):
+    """A single status definition for the horizontal Job Custom Status layout."""
+
+    name: str = Field(..., description="Status Name")
+    status_type: str = Field(..., description="Status Type (New, In Progress, completed)")
+    color: str = Field(default="#3B82F6", description="Status Color (hex)")
+    icon: str = Field(default="clipboard", description="Status Icon name")
 
 
 class JobCustomStatusRow(BaseModel):
     """Schema for a row in the 'Job Custom Status' tab.
 
-    This tab defines the basic status information for a workflow.
+    FieldPulse uses HORIZONTAL layout: one row per workflow with all statuses
+    in columns: Status Name 1, Type 1, Color 1, Icon 1, Name 2, Type 2, etc.
     """
 
-    status_action_flow_name: str = Field(
+    workflow_name: str = Field(
         ...,
         min_length=1,
         max_length=100,
-        description="Name of the Status Action Flow this status belongs to",
+        description="Custom Job Status Workflow Name",
     )
-    status_name: str = Field(
+    statuses: list[StatusDefinition] = Field(
         ...,
         min_length=1,
-        max_length=100,
-        description="Name of the status",
-    )
-    status_category: StatusCategory = Field(
-        default=StatusCategory.IN_PROGRESS,
-        description="Category of the status",
-    )
-    status_color: str = Field(
-        default="#3B82F6",
-        pattern=r"^#[0-9A-Fa-f]{6}$",
-        description="Hex color code for the status",
-    )
-    sequence: int = Field(
-        ...,
-        ge=1,
-        description="Order of the status in the workflow (1-indexed)",
-    )
-    is_active: bool = Field(
-        default=True,
-        description="Whether this status is active",
+        description="List of statuses (will be flattened to horizontal columns)",
     )
 
-    @field_validator("status_name", "status_action_flow_name")
+    @field_validator("workflow_name")
     @classmethod
     def strip_whitespace(cls, v: str) -> str:
         """Strip whitespace from string fields."""
@@ -60,55 +49,48 @@ class JobCustomStatusRow(BaseModel):
 class ActionButtonRow(BaseModel):
     """Schema for a row in the 'Action Buttons' tab.
 
-    This tab defines action buttons available for each status/role combination.
-    One row per button per status per role.
+    Matches FieldPulse column names exactly.
     """
 
-    status_action_flow_name: str = Field(
+    workflow_name: str = Field(
         ...,
         min_length=1,
         max_length=100,
-        description="Name of the Status Action Flow",
+        description="Custom Job Status Workflow Name",
     )
-    status_name: str = Field(
+    action_flow_name: str = Field(
         ...,
         min_length=1,
         max_length=100,
-        description="Name of the status this button belongs to",
+        description="Status Action Flow Name",
     )
-    user_role: UserRole = Field(
-        default=UserRole.SERVICE_AGENT,
-        description="User role this button is visible to",
-    )
-    action_type: ActionButtonType = Field(
+    job_status_name: str = Field(
         ...,
-        description="Type of action this button performs",
+        min_length=1,
+        max_length=100,
+        description="Job Status Name (must match a status in the workflow)",
     )
-    button_label: str = Field(
+    user_role: str = Field(
+        default="Service Agent",
+        description="User Role (Admin, Team Manager, Service Agent)",
+    )
+    button_action: str = Field(
+        ...,
+        min_length=1,
+        description="Button Action (e.g., Create Invoice, Take Photo)",
+    )
+    action_option: Optional[str] = Field(
+        default=None,
+        description="Action Option (template name, form name, custom status, etc.)",
+    )
+    action_button_name: str = Field(
         ...,
         min_length=1,
         max_length=50,
-        description="Display label for the button",
-    )
-    button_order: int = Field(
-        default=0,
-        ge=0,
-        description="Display order of the button",
-    )
-    is_required: bool = Field(
-        default=False,
-        description="Whether this action must be completed before status change",
-    )
-    form_id: Optional[str] = Field(
-        default=None,
-        description="Associated form ID (for Fill Form action)",
-    )
-    template_id: Optional[str] = Field(
-        default=None,
-        description="Associated template ID (for communication actions)",
+        description="Action Button Name (display label)",
     )
 
-    @field_validator("status_name", "status_action_flow_name", "button_label")
+    @field_validator("workflow_name", "action_flow_name", "job_status_name", "action_button_name")
     @classmethod
     def strip_whitespace(cls, v: str) -> str:
         """Strip whitespace from string fields."""
@@ -116,55 +98,60 @@ class ActionButtonRow(BaseModel):
 
 
 class FocusViewRow(BaseModel):
-    """Schema for a row in the 'Focus View' tab.
+    """Schema for a row in the 'Focus View + Status Instruction' tab.
 
-    This tab defines Focus View widgets and status settings per status/role.
-    One row per status per role.
+    Matches FieldPulse column names exactly.
     """
 
-    status_action_flow_name: str = Field(
+    workflow_name: str = Field(
         ...,
         min_length=1,
         max_length=100,
-        description="Name of the Status Action Flow",
+        description="Custom Job Status Workflow Name",
     )
-    status_name: str = Field(
+    action_flow_name: str = Field(
         ...,
         min_length=1,
         max_length=100,
-        description="Name of the status",
+        description="Status Action Flow Name",
     )
-    user_role: UserRole = Field(
-        default=UserRole.SERVICE_AGENT,
-        description="User role these settings apply to",
+    job_status_name: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="Job Status Name",
     )
-    widgets: list[WidgetType] = Field(
-        default_factory=list,
-        description="List of widgets to display in Focus View (in order)",
+    user_role: str = Field(
+        default="Service Agent",
+        description="User Role (Admin, Team Manager, Service Agent)",
     )
     status_instructions: str = Field(
         default="",
         max_length=2000,
-        description="Instructions displayed to the user in this status",
+        description="Status Instructions",
     )
-    display_action_menu: bool = Field(
-        default=True,
-        description="Whether to show the action menu",
+    display_action_menu: str = Field(
+        default="T",
+        description="Display Action Menu (T/F)",
     )
-    ability_to_change_status: bool = Field(
-        default=True,
-        description="Whether user can manually change status",
+    ability_to_change_status: str = Field(
+        default="T",
+        description="Ability to Change Status (T/F)",
     )
-    focus_view_enabled: bool = Field(
-        default=True,
-        description="Whether Focus View is enabled for this status",
+    focus_view_enabled: str = Field(
+        default="T",
+        description="Focus View Enabled (T/F)",
     )
-    restrict_to_focus_view: bool = Field(
-        default=False,
-        description="Whether to restrict user to Focus View only",
+    focus_view_layout: str = Field(
+        default="",
+        description="Focus View Layout (comma-separated widget names)",
+    )
+    restrict_to_focus_view: str = Field(
+        default="F",
+        description="Restrict user access to Focus View only (T/F)",
     )
 
-    @field_validator("status_name", "status_action_flow_name")
+    @field_validator("workflow_name", "action_flow_name", "job_status_name")
     @classmethod
     def strip_whitespace(cls, v: str) -> str:
         """Strip whitespace from string fields."""
@@ -172,12 +159,15 @@ class FocusViewRow(BaseModel):
 
 
 class ExcelImportTemplate(BaseModel):
-    """Complete Excel import template structure with all 3 tabs."""
+    """Complete Excel import template structure with all 3 tabs.
+
+    Matches FieldPulse ClearPath Import Template format exactly.
+    """
 
     job_custom_statuses: list[JobCustomStatusRow] = Field(
         ...,
         min_length=1,
-        description="Rows for the Job Custom Status tab",
+        description="Rows for the Job Custom Status tab (one row per workflow)",
     )
     action_buttons: list[ActionButtonRow] = Field(
         default_factory=list,
@@ -185,59 +175,26 @@ class ExcelImportTemplate(BaseModel):
     )
     focus_view: list[FocusViewRow] = Field(
         default_factory=list,
-        description="Rows for the Focus View tab",
+        description="Rows for the Focus View + Status Instruction tab",
     )
 
     @field_validator("job_custom_statuses")
     @classmethod
-    def validate_unique_statuses(
+    def validate_unique_workflows(
         cls, v: list[JobCustomStatusRow]
     ) -> list[JobCustomStatusRow]:
-        """Ensure status names are unique within each workflow."""
-        seen: dict[str, set[str]] = {}
+        """Ensure workflow names are unique."""
+        seen: set[str] = set()
         for row in v:
-            flow_name = row.status_action_flow_name
-            if flow_name not in seen:
-                seen[flow_name] = set()
-            if row.status_name in seen[flow_name]:
+            if row.workflow_name in seen:
                 raise ValueError(
-                    f"Duplicate status name '{row.status_name}' in flow '{flow_name}'"
+                    f"Duplicate workflow name: '{row.workflow_name}'"
                 )
-            seen[flow_name].add(row.status_name)
+            seen.add(row.workflow_name)
         return v
 
-    def get_statuses_for_flow(self, flow_name: str) -> list[JobCustomStatusRow]:
-        """Get all statuses for a specific workflow."""
-        return [
-            row
-            for row in self.job_custom_statuses
-            if row.status_action_flow_name == flow_name
-        ]
-
-    def get_buttons_for_status(
-        self, flow_name: str, status_name: str, role: Optional[UserRole] = None
-    ) -> list[ActionButtonRow]:
-        """Get action buttons for a specific status."""
-        buttons = [
-            row
-            for row in self.action_buttons
-            if row.status_action_flow_name == flow_name
-            and row.status_name == status_name
-        ]
-        if role:
-            buttons = [b for b in buttons if b.user_role == role]
-        return sorted(buttons, key=lambda x: x.button_order)
-
-    def get_focus_view_for_status(
-        self, flow_name: str, status_name: str, role: Optional[UserRole] = None
-    ) -> list[FocusViewRow]:
-        """Get Focus View configuration for a specific status."""
-        views = [
-            row
-            for row in self.focus_view
-            if row.status_action_flow_name == flow_name
-            and row.status_name == status_name
-        ]
-        if role:
-            views = [v for v in views if v.user_role == role]
-        return views
+    def get_max_statuses(self) -> int:
+        """Get the maximum number of statuses across all workflows."""
+        if not self.job_custom_statuses:
+            return 0
+        return max(len(row.statuses) for row in self.job_custom_statuses)

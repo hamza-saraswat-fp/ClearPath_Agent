@@ -1,0 +1,245 @@
+{
+  "workflow_name": "Residential Service Call Workflow",
+  "workflow_description": "End-to-end workflow for residential service calls including job creation, dispatch, on-site assessment, estimate/repair work, invoicing, and payment collection with customer communication touchpoints throughout.",
+  "job_types": [
+    "Service Call",
+    "Repair",
+    "Residential Service"
+  ],
+  "steps": [
+    {
+      "step_name": "Job Created",
+      "sequence": 1,
+      "role_mentioned": "Dispatcher",
+      "action_phrases": [
+        {
+          "phrase": "sends a confirmation text to the customer",
+          "context": "Notify customer that their job has been created and scheduled",
+          "confidence": 0.95,
+          "suggested_type": "action:send_customer_communication"
+        },
+        {
+          "phrase": "job gets scheduled",
+          "context": "Schedule the job for a specific date/time",
+          "confidence": 0.85,
+          "suggested_type": "action:change_status"
+        }
+      ],
+      "information_needs": [
+        {
+          "phrase": "customer contact",
+          "context": "Need customer phone/email to send confirmation",
+          "confidence": 0.95,
+          "suggested_type": "widget:job_customer_contact"
+        },
+        {
+          "phrase": "scheduled time",
+          "context": "View when the job is scheduled",
+          "confidence": 0.95,
+          "suggested_type": "widget:scheduled_datetime"
+        }
+      ]
+    },
+    {
+      "step_name": "Heading to the Job",
+      "sequence": 2,
+      "role_mentioned": "Tech",
+      "action_phrases": [
+        {
+          "phrase": "tech clocks in when they leave",
+          "context": "Start tracking drive time separately from work time",
+          "confidence": 0.95,
+          "suggested_type": "action:job_timesheet_clock"
+        },
+        {
+          "phrase": "sends an 'on the way' text to the customer",
+          "context": "Notify customer that tech is en route with live tracking",
+          "confidence": 0.95,
+          "suggested_type": "action:send_trip_tracking_sms"
+        }
+      ],
+      "information_needs": [
+        {
+          "phrase": "customer contact",
+          "context": "Need customer phone to send on-my-way notification",
+          "confidence": 0.95,
+          "suggested_type": "widget:job_customer_contact"
+        },
+        {
+          "phrase": "job location",
+          "context": "Need address for navigation",
+          "confidence": 0.95,
+          "suggested_type": "widget:job_location"
+        },
+        {
+          "phrase": "drive time tracking",
+          "context": "Track travel time separately from work time",
+          "confidence": 0.9,
+          "suggested_type": "widget:timesheets"
+        }
+      ]
+    },
+    {
+      "step_name": "On Site — Assessment",
+      "sequence": 3,
+      "role_mentioned": "Tech",
+      "action_phrases": [
+        {
+          "phrase": "takes before photos",
+          "context": "Document initial condition before starting work",
+          "confidence": 0.95,
+          "suggested_type": "action:take_photo"
+        },
+        {
+          "phrase": "writes up findings in notes",
+          "context": "Document assessment findings for record and communication",
+          "confidence": 0.9,
+          "suggested_type": "action:add_comment"
+        },
+        {
+          "phrase": "assesses the issue",
+          "context": "Evaluate the problem to determine if simple fix or estimate needed",
+          "confidence": 0.85,
+          "suggested_type": "action:fill_form"
+        }
+      ],
+      "information_needs": [
+        {
+          "phrase": "job notes",
+          "context": "View existing job details and customer-reported issue",
+          "confidence": 0.95,
+          "suggested_type": "widget:job_notes"
+        },
+        {
+          "phrase": "before photos",
+          "context": "Store and view photos documenting initial condition",
+          "confidence": 0.95,
+          "suggested_type": "widget:files_photos"
+        },
+        {
+          "phrase": "customer information",
+          "context": "Access customer details and history",
+          "confidence": 0.9,
+          "suggested_type": "widget:job_customer"
+        }
+      ]
+    },
+    {
+      "step_name": "Work in Progress",
+      "sequence": 4,
+      "role_mentioned": "Tech",
+      "action_phrases": [
+        {
+          "phrase": "creating and presenting an estimate to the homeowner",
+          "context": "Build and present quote for larger jobs requiring customer approval",
+          "confidence": 0.95,
+          "suggested_type": "action:create_estimate"
+        },
+        {
+          "phrase": "doing the repair",
+          "context": "Perform the service work",
+          "confidence": 0.85,
+          "suggested_type": "action:change_status"
+        },
+        {
+          "phrase": "estimate is approved",
+          "context": "Customer approves the estimate to proceed with work",
+          "confidence": 0.9,
+          "suggested_type": "action:approved"
+        }
+      ],
+      "information_needs": [
+        {
+          "phrase": "estimate details",
+          "context": "View and present estimate to customer",
+          "confidence": 0.95,
+          "suggested_type": "widget:estimates"
+        },
+        {
+          "phrase": "material lists",
+          "context": "Track materials needed for the job",
+          "confidence": 0.9,
+          "suggested_type": "widget:job_material_lists"
+        },
+        {
+          "phrase": "job instructions",
+          "context": "View status-specific instructions for current step",
+          "confidence": 0.9,
+          "suggested_type": "widget:status_instructions"
+        }
+      ]
+    },
+    {
+      "step_name": "Wrapping Up",
+      "sequence": 5,
+      "role_mentioned": "Tech",
+      "action_phrases": [
+        {
+          "phrase": "after photos",
+          "context": "Document completed work for quality assurance and customer records",
+          "confidence": 0.95,
+          "suggested_type": "action:take_photo"
+        },
+        {
+          "phrase": "create invoice",
+          "context": "Generate invoice for completed work",
+          "confidence": 0.95,
+          "suggested_type": "action:create_invoice"
+        },
+        {
+          "phrase": "collect payment",
+          "context": "Receive payment from customer on-site",
+          "confidence": 0.85,
+          "suggested_type": "action:completed_&_paid_in_full"
+        },
+        {
+          "phrase": "mark for office follow-up",
+          "context": "Flag job for office to handle payment collection later",
+          "confidence": 0.85,
+          "suggested_type": "action:completed_no_payment_taken"
+        },
+        {
+          "phrase": "send 'thank you' text",
+          "context": "Send appreciation message to customer after service",
+          "confidence": 0.95,
+          "suggested_type": "action:send_customer_communication"
+        },
+        {
+          "phrase": "clock out",
+          "context": "Stop time tracking when leaving job site - often forgotten",
+          "confidence": 0.95,
+          "suggested_type": "action:job_timesheet_clock"
+        }
+      ],
+      "information_needs": [
+        {
+          "phrase": "after photos",
+          "context": "Store and view photos documenting completed work",
+          "confidence": 0.95,
+          "suggested_type": "widget:files_photos"
+        },
+        {
+          "phrase": "invoice details",
+          "context": "View and present invoice to customer",
+          "confidence": 0.95,
+          "suggested_type": "widget:job_invoices"
+        },
+        {
+          "phrase": "customer contact",
+          "context": "Need customer info for thank you message",
+          "confidence": 0.95,
+          "suggested_type": "widget:job_customer_contact"
+        },
+        {
+          "phrase": "time entries",
+          "context": "View and verify time tracked on the job",
+          "confidence": 0.9,
+          "suggested_type": "widget:timesheets"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "industry": "Residential Home Services"
+  }
+}

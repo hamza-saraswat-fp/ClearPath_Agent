@@ -1,7 +1,7 @@
 """Excel Generator Service.
 
 Generates physical .xlsx files from ExcelImportTemplate schemas
-using openpyxl. This is the final stage of the configuration pipeline.
+using openpyxl. Matches FieldPulse ClearPath Import Template format exactly.
 """
 
 import logging
@@ -13,32 +13,18 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.worksheet.worksheet import Worksheet
 
-from ..models.enums import ActionButtonType, StatusCategory, UserRole, WidgetType
 from ..models.excel_schemas import ExcelImportTemplate
 
 logger = logging.getLogger(__name__)
 
 
 class ExcelGenerator:
-    """Generates Excel files from ExcelImportTemplate schemas.
+    """Generates Excel files matching FieldPulse ClearPath Import Template format.
 
-    Creates properly formatted .xlsx files with 3 tabs matching
-    FieldPulse's ClearPath import template structure.
-
-    Example usage:
-        ```python
-        from clearpath_agent.services.excel_generator import ExcelGenerator
-        from clearpath_agent.services.config_to_excel import ConfigToExcelConverter
-
-        # Convert config to template
-        converter = ConfigToExcelConverter()
-        template = converter.convert(status_action_flow)
-
-        # Generate Excel file
-        generator = ExcelGenerator()
-        output_path = generator.generate(template, "my_workflow.xlsx")
-        print(f"Generated: {output_path}")
-        ```
+    Creates properly formatted .xlsx files with 3 tabs:
+    1. Job Custom Status - HORIZONTAL layout (all statuses in one row)
+    2. Action Buttons - Correct column names
+    3. Focus View + Status Instruction - Correct column names
     """
 
     # Sheet names matching FieldPulse import format
@@ -46,44 +32,34 @@ class ExcelGenerator:
     SHEET_ACTION_BUTTONS = "Action Buttons"
     SHEET_FOCUS_VIEW = "Focus View + Status Instruction"
 
-    # Column headers for each tab
-    HEADERS_JOB_CUSTOM_STATUS = [
-        "Status Action Flow Name",
-        "Status Name",
-        "Status Category",
-        "Status Color",
-        "Sequence",
-        "Is Active",
-    ]
-
+    # Column headers for Action Buttons tab (matches FieldPulse exactly)
     HEADERS_ACTION_BUTTONS = [
+        "Custom Job Status Workflow Name",
         "Status Action Flow Name",
-        "Status Name",
+        "Job Status Name",
         "User Role",
-        "Action Type",
-        "Button Label",
-        "Button Order",
-        "Is Required",
-        "Form ID",
-        "Template ID",
+        "Button Action",
+        "Action Option",
+        "Action Button Name",
     ]
 
+    # Column headers for Focus View tab (matches FieldPulse exactly)
     HEADERS_FOCUS_VIEW = [
+        "Custom Job Status Workflow Name",
         "Status Action Flow Name",
-        "Status Name",
+        "Job Status Name",
         "User Role",
-        "Widgets",
         "Status Instructions",
         "Display Action Menu",
         "Ability to Change Status",
         "Focus View Enabled",
-        "Restrict to Focus View",
+        "Focus View Layout",
+        "Restrict user access to Focus View only",
     ]
 
-    # Column widths for each tab
-    WIDTHS_JOB_CUSTOM_STATUS = [30, 25, 15, 12, 10, 10]
-    WIDTHS_ACTION_BUTTONS = [30, 20, 15, 25, 20, 12, 12, 20, 20]
-    WIDTHS_FOCUS_VIEW = [30, 20, 15, 50, 40, 18, 22, 18, 20]
+    # Column widths
+    WIDTHS_ACTION_BUTTONS = [35, 30, 20, 15, 25, 30, 25]
+    WIDTHS_FOCUS_VIEW = [35, 30, 20, 15, 40, 18, 22, 18, 50, 30]
 
     # Styling constants
     HEADER_FONT = Font(bold=True, size=11)
@@ -172,7 +148,7 @@ class ExcelGenerator:
 
         logger.info(
             f"Excel file generated successfully: {output_path} "
-            f"({len(template.job_custom_statuses)} statuses, "
+            f"({len(template.job_custom_statuses)} workflows, "
             f"{len(template.action_buttons)} button rows, "
             f"{len(template.focus_view)} focus view rows)"
         )
@@ -192,31 +168,26 @@ class ExcelGenerator:
 
         # Check for empty template
         if not template.job_custom_statuses:
-            errors.append("Template has no statuses defined")
+            errors.append("Template has no workflows defined")
 
-        # Check status consistency
-        status_names = {row.status_name for row in template.job_custom_statuses}
+        # Get all status names from all workflows
+        status_names: set[str] = set()
+        for workflow_row in template.job_custom_statuses:
+            for status in workflow_row.statuses:
+                status_names.add(status.name)
 
         # Check button rows reference valid statuses
         for row in template.action_buttons:
-            if row.status_name not in status_names:
+            if row.job_status_name not in status_names:
                 errors.append(
-                    f"Action button references unknown status: {row.status_name}"
+                    f"Action button references unknown status: {row.job_status_name}"
                 )
 
         # Check focus view rows reference valid statuses
         for row in template.focus_view:
-            if row.status_name not in status_names:
+            if row.job_status_name not in status_names:
                 errors.append(
-                    f"Focus view references unknown status: {row.status_name}"
-                )
-
-        # Warn about long status instructions
-        for row in template.focus_view:
-            if len(row.status_instructions) > 2000:
-                errors.append(
-                    f"Status instructions for '{row.status_name}' exceeds 2000 chars "
-                    f"({len(row.status_instructions)} chars) - will be truncated"
+                    f"Focus view references unknown status: {row.job_status_name}"
                 )
 
         return errors
@@ -242,9 +213,9 @@ class ExcelGenerator:
         """
         if output_path is None:
             # Generate default filename
-            flow_name = template.job_custom_statuses[0].status_action_flow_name
-            # Sanitize flow name for filename
-            safe_name = "".join(c if c.isalnum() or c in "-_ " else "_" for c in flow_name)
+            workflow_name = template.job_custom_statuses[0].workflow_name
+            # Sanitize workflow name for filename
+            safe_name = "".join(c if c.isalnum() or c in "-_ " else "_" for c in workflow_name)
             safe_name = safe_name.replace(" ", "_")
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             filename = f"ClearPath_Import_{safe_name}_{timestamp}.xlsx"
@@ -266,7 +237,10 @@ class ExcelGenerator:
         workbook: Workbook,
         template: ExcelImportTemplate,
     ) -> None:
-        """Generate the Job Custom Status tab.
+        """Generate the Job Custom Status tab with HORIZONTAL layout.
+
+        FieldPulse format: One row per workflow with columns:
+        Custom Job Status Workflow Name | Status Name 1 | Status Type 1 | Status Color 1 | Status Icon 1 | ...
 
         Args:
             workbook: The workbook to add the sheet to
@@ -274,30 +248,51 @@ class ExcelGenerator:
         """
         sheet = workbook.create_sheet(self.SHEET_JOB_CUSTOM_STATUS)
 
-        # Write header row
-        self._write_header_row(sheet, self.HEADERS_JOB_CUSTOM_STATUS)
+        # Build dynamic headers based on max number of statuses
+        max_statuses = template.get_max_statuses()
+        headers = ["Custom Job Status Workflow Name"]
+        for i in range(1, max_statuses + 1):
+            headers.extend([
+                f"Status Name {i}",
+                f"Status Type {i}",
+                f"Status Color {i}",
+                f"Status Icon {i}",
+            ])
 
-        # Write data rows
-        for row_idx, status_row in enumerate(template.job_custom_statuses, start=2):
-            data = [
-                status_row.status_action_flow_name,
-                status_row.status_name,
-                self._format_status_category(status_row.status_category),
-                status_row.status_color,
-                status_row.sequence,
-                self._format_boolean(status_row.is_active),
-            ]
+        # Write header row
+        self._write_header_row(sheet, headers)
+
+        # Write data rows (one row per workflow)
+        for row_idx, workflow_row in enumerate(template.job_custom_statuses, start=2):
+            data = [workflow_row.workflow_name]
+
+            # Flatten statuses horizontally
+            for status in workflow_row.statuses:
+                data.extend([
+                    status.name,
+                    status.status_type,
+                    status.color,
+                    status.icon,
+                ])
+
+            # Pad with empty values if this workflow has fewer statuses
+            remaining = max_statuses - len(workflow_row.statuses)
+            data.extend([""] * (remaining * 4))
+
             self._write_data_row(sheet, row_idx, data)
 
         # Set column widths
-        self._set_column_widths(sheet, self.WIDTHS_JOB_CUSTOM_STATUS)
+        widths = [35]  # Workflow name
+        for _ in range(max_statuses):
+            widths.extend([20, 15, 12, 12])  # Name, Type, Color, Icon
+        self._set_column_widths(sheet, widths)
 
         # Freeze header row
         sheet.freeze_panes = "A2"
 
         logger.debug(
             f"Generated {self.SHEET_JOB_CUSTOM_STATUS} sheet "
-            f"with {len(template.job_custom_statuses)} rows"
+            f"with {len(template.job_custom_statuses)} workflow rows"
         )
 
     def _generate_action_buttons_sheet(
@@ -305,7 +300,7 @@ class ExcelGenerator:
         workbook: Workbook,
         template: ExcelImportTemplate,
     ) -> None:
-        """Generate the Action Buttons tab.
+        """Generate the Action Buttons tab with FieldPulse column names.
 
         Args:
             workbook: The workbook to add the sheet to
@@ -319,15 +314,13 @@ class ExcelGenerator:
         # Write data rows
         for row_idx, button_row in enumerate(template.action_buttons, start=2):
             data = [
-                button_row.status_action_flow_name,
-                button_row.status_name,
-                self._format_user_role(button_row.user_role),
-                self._format_action_type(button_row.action_type),
-                button_row.button_label,
-                button_row.button_order,
-                self._format_boolean(button_row.is_required),
-                button_row.form_id or "",
-                button_row.template_id or "",
+                button_row.workflow_name,
+                button_row.action_flow_name,
+                button_row.job_status_name,
+                button_row.user_role,
+                button_row.button_action,
+                button_row.action_option or "",
+                button_row.action_button_name,
             ]
             self._write_data_row(sheet, row_idx, data)
 
@@ -347,7 +340,7 @@ class ExcelGenerator:
         workbook: Workbook,
         template: ExcelImportTemplate,
     ) -> None:
-        """Generate the Focus View tab.
+        """Generate the Focus View + Status Instruction tab with FieldPulse column names.
 
         Args:
             workbook: The workbook to add the sheet to
@@ -361,17 +354,18 @@ class ExcelGenerator:
         # Write data rows
         for row_idx, focus_row in enumerate(template.focus_view, start=2):
             data = [
-                focus_row.status_action_flow_name,
-                focus_row.status_name,
-                self._format_user_role(focus_row.user_role),
-                self._format_widget_list(focus_row.widgets),
+                focus_row.workflow_name,
+                focus_row.action_flow_name,
+                focus_row.job_status_name,
+                focus_row.user_role,
                 focus_row.status_instructions,
-                self._format_boolean(focus_row.display_action_menu),
-                self._format_boolean(focus_row.ability_to_change_status),
-                self._format_boolean(focus_row.focus_view_enabled),
-                self._format_boolean(focus_row.restrict_to_focus_view),
+                focus_row.display_action_menu,
+                focus_row.ability_to_change_status,
+                focus_row.focus_view_enabled,
+                focus_row.focus_view_layout,
+                focus_row.restrict_to_focus_view,
             ]
-            self._write_data_row(sheet, row_idx, data, wrap_column=5)
+            self._write_data_row(sheet, row_idx, data, wrap_columns=[5, 9])
 
         # Set column widths
         self._set_column_widths(sheet, self.WIDTHS_FOCUS_VIEW)
@@ -407,7 +401,7 @@ class ExcelGenerator:
         sheet: Worksheet,
         row_idx: int,
         data: list,
-        wrap_column: Optional[int] = None,
+        wrap_columns: Optional[list[int]] = None,
     ) -> None:
         """Write and format a data row.
 
@@ -415,11 +409,12 @@ class ExcelGenerator:
             sheet: The worksheet to write to
             row_idx: The row number (1-indexed)
             data: List of values to write
-            wrap_column: Optional column index (1-indexed) to apply text wrapping
+            wrap_columns: Optional list of column indices (1-indexed) to apply text wrapping
         """
+        wrap_columns = wrap_columns or []
         for col_idx, value in enumerate(data, start=1):
             cell = sheet.cell(row=row_idx, column=col_idx, value=value)
-            if wrap_column and col_idx == wrap_column:
+            if col_idx in wrap_columns:
                 cell.alignment = self.WRAP_ALIGNMENT
             else:
                 cell.alignment = self.DATA_ALIGNMENT
@@ -437,67 +432,20 @@ class ExcelGenerator:
             widths: List of column widths
         """
         for col_idx, width in enumerate(widths, start=1):
-            col_letter = chr(ord("A") + col_idx - 1)
-            if col_idx > 26:
-                # Handle columns beyond Z (AA, AB, etc.)
-                col_letter = chr(ord("A") + (col_idx - 1) // 26 - 1) + chr(
-                    ord("A") + (col_idx - 1) % 26
-                )
+            col_letter = self._get_column_letter(col_idx)
             sheet.column_dimensions[col_letter].width = width
 
-    # --- Enum Conversion Helper Methods ---
-
-    def _format_status_category(self, category: StatusCategory) -> str:
-        """Convert StatusCategory enum to display string.
+    def _get_column_letter(self, col_idx: int) -> str:
+        """Convert column index to Excel column letter.
 
         Args:
-            category: The StatusCategory enum value
+            col_idx: 1-indexed column number
 
         Returns:
-            Display string for the category
+            Column letter (A, B, ..., Z, AA, AB, etc.)
         """
-        return category.value
-
-    def _format_user_role(self, role: UserRole) -> str:
-        """Convert UserRole enum to display string.
-
-        Args:
-            role: The UserRole enum value
-
-        Returns:
-            Display string for the role
-        """
-        return role.value
-
-    def _format_action_type(self, action: ActionButtonType) -> str:
-        """Convert ActionButtonType enum to display string.
-
-        Args:
-            action: The ActionButtonType enum value
-
-        Returns:
-            Display string for the action type
-        """
-        return action.value
-
-    def _format_widget_list(self, widgets: list[WidgetType]) -> str:
-        """Convert widget list to comma-separated string.
-
-        Args:
-            widgets: List of WidgetType enum values
-
-        Returns:
-            Comma-separated string of widget names
-        """
-        return ", ".join(w.value for w in widgets)
-
-    def _format_boolean(self, value: bool) -> str:
-        """Convert Python bool to Excel-compatible string.
-
-        Args:
-            value: Boolean value
-
-        Returns:
-            "TRUE" or "FALSE" string
-        """
-        return "TRUE" if value else "FALSE"
+        result = ""
+        while col_idx > 0:
+            col_idx, remainder = divmod(col_idx - 1, 26)
+            result = chr(ord("A") + remainder) + result
+        return result
