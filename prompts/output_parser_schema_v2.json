@@ -1,0 +1,34 @@
+{
+  "workflow_name": "string",
+  "workflow_description": "string",
+  "job_types": ["string"],
+  "steps": [
+    {
+      "step_name": "string",
+      "sequence": 1,
+      "role_mentioned": "string or null",
+      "status_instructions": "1. First step\n2. Second step\n3. Change status to Next Status",
+      "action_phrases": [
+        {
+          "phrase": "customer's original words",
+          "context": "what this action accomplishes",
+          "confidence": 0.9,
+          "suggested_type": "ClearPath action type from knowledge base"
+        }
+      ],
+      "information_needs": [
+        {
+          "phrase": "customer's original words",
+          "context": "why they need this info",
+          "confidence": 0.9,
+          "suggested_type": "ClearPath widget ID from knowledge base"
+        }
+      ]
+    }
+  ],
+  "metadata": {
+    "industry": "string",
+    "company_size": "string",
+    "complexity": "simple | moderate | complex"
+  }
+}

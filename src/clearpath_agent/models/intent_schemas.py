@@ -7,7 +7,7 @@ the output from Phase 2 (LLM Semantic Extraction).
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class ConfidenceLevel(str, Enum):
@@ -36,6 +36,15 @@ class ExtractedPhrase(BaseModel):
         le=1.0,
         description="Confidence score for this phrase (0-1)",
     )
+
+    @field_validator("confidence", mode="before")
+    @classmethod
+    def coerce_confidence(cls, v):
+        """Coerce string confidence values to float (LLMs sometimes output strings)."""
+        if isinstance(v, str):
+            return float(v)
+        return v
+
     suggested_type: Optional[str] = Field(
         default=None,
         description="LLM's suggested canonical type (action or widget name)",
@@ -125,6 +134,19 @@ class ExtractedStep(BaseModel):
         default=None,
         description="Role mentioned in the step description",
     )
+
+    @model_validator(mode="before")
+    @classmethod
+    def map_status_instructions(cls, values):
+        """Map status_instructions from Relational Agent to instructions_raw.
+
+        The n8n Relational Agent outputs 'status_instructions' but the
+        Python pipeline uses 'instructions_raw'. This bridges the gap.
+        """
+        if isinstance(values, dict):
+            if "status_instructions" in values and not values.get("instructions_raw"):
+                values["instructions_raw"] = values["status_instructions"]
+        return values
 
     @property
     def has_low_confidence_items(self) -> bool:
