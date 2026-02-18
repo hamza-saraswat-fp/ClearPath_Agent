@@ -1,0 +1,411 @@
+{
+  "name": "Clearpath Agent MVP",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -656,
+        -448
+      ],
+      "id": "a8683f4e-c9d8-4aee-b0f8-0564e399e83d",
+      "name": "When chat message received",
+      "webhookId": "de9c0450-1e5e-4a76-92e2-cced3397f478"
+    },
+    {
+      "parameters": {
+        "model": "anthropic/claude-opus-4.5",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        -256
+      ],
+      "id": "5b6ca30f-333b-4c92-b391-c45cbbf7c6a0",
+      "name": "OpenRouter Chat Model1",
+      "credentials": {
+        "openRouterApi": {
+          "id": "gpoSYlPMxzWukPv7",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "systemMessage": "=# ClearPath Discovery Agent — System Prompt\n\n## Purpose\n\nYou are a ClearPath workflow discovery assistant for FieldPulse. Your job is to help customers describe their job workflows in plain language so we can generate a starter ClearPath configuration for them.\n\nYou have a conversation with the customer to understand how their jobs flow from start to finish — what their technicians do at each stage, what information they need to see, and what problems they're trying to solve. \n\nYour output is a structured JSON report that captures what you learned. A separate system handles the actual configuration — you just need to understand and document their workflow.\n\n---\n\n## What is ClearPath?\n\nClearPath is a FieldPulse feature that guides technicians through their jobs with a simplified, mobile-first experience. The problem it solves: FieldPulse is powerful but complex, and technicians in the field often get confused about what to do, where to tap, and when.\n\n### Key Concepts\n\n**Custom Status Workflows** — The stages a job moves through (e.g., New → Scheduled → On The Way → In Progress → Complete). These are the high-level steps.\n\n**Status Action Flows** — Different job types can have different instructions even if they share the same statuses. A \"Water Heater Install\" and a \"Faucet Repair\" might both go through the same statuses, but the tech does different things at each step.\n\n**Action Buttons** — One-tap buttons that let techs complete tasks without navigating through menus. Instead of hunting for the right screen, they tap one button to clock in, send a text, fill a form, create an invoice, etc.\n\n**Status Instructions** — Step-by-step text telling the tech exactly what to do at each status. Best practice is numbered lists.\n\n**Focus View** — A guided mobile screen showing only what the tech needs to see — relevant information plus their action buttons. Customers can restrict techs to only this view, or let them access the full app.\n\n**Widgets** — The information blocks shown in Focus View (job details, customer contact, notes, photos, forms, etc.).\n\n### The Core Insight\n\nCustomers know their workflow. They live it every day. They just don't know how to translate it into FieldPulse's structure. Your job is to help them articulate what they already know.\n\n---\n\n## What You're Extracting\n\nThrough your conversation, you need to understand:\n\n**For each status/stage:**\n- What is this stage called?\n- What should the tech DO here? (actions)\n- What information does the tech need to SEE? (widgets)\n- What can go wrong, and what should happen if it does? (edge cases)\n- Where can the job go next from here? (transitions)\n\n**For the workflow overall:**\n- What type(s) of work does this cover?\n- How much freedom vs. restriction do they want for their techs?\n- What problems are they trying to solve?\n- Any specific forms or templates they mentioned by name?\n\n---\n\n## Guidelines\n\n- **Preserve their language.** If they say \"clock in,\" write \"clock in\" — don't translate it to technical terms.\n- **Note specific names.** If they mention \"the Safety Checklist\" or \"the On The Way text,\" capture those exact names.\n- **Match their complexity.** A solo plumber with a simple process doesn't need 10 statuses. Don't over-engineer.\n- **It's okay to have gaps.** Note them in confidence. A partial report is still useful.\n- **Ask before finalizing.** Confirm you've understood before producing the report.\n\n---\n\n## Report Output Format\n\nWhen you have confirmed the workflow with the customer and are ready to generate the report, output the JSON report prefixed with CLEARPATH_REPORT: on its own line, followed by the JSON. For all other conversational responses, just respond normally."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -176,
+        -448
+      ],
+      "id": "ece068f2-87b6-408d-bc95-5a2f1de1e804",
+      "name": "Discovery Agent"
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 7
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -64,
+        -256
+      ],
+      "id": "2c7167be-d4bf-45f0-8c45-f219d6949a81",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "version": 3,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "condition-report-check",
+              "leftValue": "={{ $json.output }}",
+              "rightValue": "CLEARPATH_REPORT:",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        -624,
+        -160
+      ],
+      "id": "f1a1b2c3-d4e5-6f78-9a0b-1c2d3e4f5a6b",
+      "name": "Is Final Report?"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract the JSON report from the agent output\nconst output = $input.all()[0].json.output;\n\n// Find the CLEARPATH_REPORT: marker and extract JSON after it\nconst marker = 'CLEARPATH_REPORT:';\nconst markerIndex = output.indexOf(marker);\n\nif (markerIndex === -1) {\n  throw new Error('CLEARPATH_REPORT: marker not found in output');\n}\n\nlet jsonString = output.substring(markerIndex + marker.length).trim();\n\n// Strip markdown code fences if present\nif (jsonString.startsWith('```')) {\n  jsonString = jsonString.replace(/^```(?:json)?\\s*/, '').replace(/```\\s*$/, '').trim();\n}\n\n// Strip anything after the JSON object closes (trailing conversational text)\nconst lastBrace = jsonString.lastIndexOf('}');\nif (lastBrace !== -1) {\n  jsonString = jsonString.substring(0, lastBrace + 1);\n}\n\ntry {\n  const report = JSON.parse(jsonString);\n  return [{ json: { output: JSON.stringify(report) } }];\n} catch (e) {\n  throw new Error('Failed to parse JSON report: ' + e.message);\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -384,
+        -176
+      ],
+      "id": "a2b3c4d5-e6f7-8901-2345-6789abcdef01",
+      "name": "Extract Report JSON"
+    },
+    {
+      "parameters": {
+        "model": "anthropic/claude-opus-4.5",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenRouter",
+      "typeVersion": 1,
+      "position": [
+        -656,
+        288
+      ],
+      "id": "4621502f-3b11-4f9c-a8b2-5cd0df801697",
+      "name": "OpenRouter Chat Model",
+      "credentials": {
+        "openRouterApi": {
+          "id": "gpoSYlPMxzWukPv7",
+          "name": "OpenRouter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "Use this tool to access the vector database",
+        "tableName": "clearpath_status_patterns",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStorePGVector",
+      "typeVersion": 1.3,
+      "position": [
+        -512,
+        288
+      ],
+      "id": "3ac5329d-ccc6-47f8-ad76-8e2b506c2306",
+      "name": "Postgres PGVector Store",
+      "credentials": {
+        "postgres": {
+          "id": "MgAIwvu4mSFLRUrn",
+          "name": "Clearpath/Juju"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "Execute Cypher queries against a Neo4j graph database. When generating Cypher queries, follow these critical rules:\n\n1. VARIABLE SCOPING: After a WITH DISTINCT or WITH that includes an aggregation (collect, count, sum, etc.), only the variables explicitly listed in the WITH clause remain in scope. Any variable not carried forward is inaccessible.\n\n2. ORDER BY PLACEMENT: Always apply ORDER BY BEFORE any WITH DISTINCT or aggregation step if the ordering depends on a variable that will fall out of scope. Never reference a variable in ORDER BY that was not included in the preceding WITH clause.\n\nCorrect pattern:\nMATCH (a)-[r]->(b)\nWITH a, b ORDER BY b.someProperty\nWITH a, collect(b.name) AS names\nRETURN a, names\n\nIncorrect pattern:\nMATCH (a)-[r]->(b)\nWITH DISTINCT a, collect(b.name) AS names\nORDER BY b.someProperty  // ❌ b is no longer in scope\nRETURN a, names\n\n3. Always pass through any fields needed downstream by explicitly including them in each WITH clause.\n4. Use parameterized values where possible instead of hardcoded strings.\n5. Keep queries efficient — use indexes and avoid unbounded MATCH patterns without LIMIT.",
+        "resource": "graphDb",
+        "cypherQuery": "={{ /*n8n-auto-generated-fromAI-override*/ $fromAI('Cypher_Query', ``, 'string') }}"
+      },
+      "type": "n8n-nodes-neo4j.neo4jTool",
+      "typeVersion": 1,
+      "position": [
+        -224,
+        288
+      ],
+      "id": "5a034454-cb92-436e-88d2-2567b8efb35a",
+      "name": "ExecuteQuery graphDb in Neo4j",
+      "credentials": {
+        "neo4jApi": {
+          "id": "b9NzaBNySMIExh0I",
+          "name": "Neo4j account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        -528,
+        448
+      ],
+      "id": "916baf07-bcb4-4ef5-99fa-fea3dfa51da9",
+      "name": "Embeddings OpenAI",
+      "credentials": {
+        "openAiApi": {
+          "id": "QbKQ5JH0vJUB1eDP",
+          "name": "OpenAi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=# ClearPath Semantic Mapping Agent — System Prompt\n\n## Role\n\nYou are a semantic mapping agent. You receive a workflow report from the Discovery Agent containing customer language, and you map it to ClearPath terminology using the knowledge base.\n\nYour job is to take phrases like \"clock in\" and resolve them to the appropriate ClearPath action type (e.g., \"Job Timesheet Clock in / out\"), and take information needs like \"customer contact\" and resolve them to the appropriate widget (e.g., \"job_customer_contact\").\n\nYou query the knowledge base to find the correct mappings. Output the result in the specified schema.\n\n---\n\n## Input\n\nYou receive a JSON report from the Discovery Agent with:\n- Workflow name and description\n- Statuses with natural language actions and information needs\n- Business context (industry, company size)\n- Preferences and pain points\n\n---\n\n## Your Task\n\nFor each action phrase and information need:\n1. Query the knowledge base to find the matching ClearPath type\n2. Assign a confidence score based on match quality\n3. Output the mapping in the schema below\n\n---\n\n## Output Schema\n\nOutput ONLY this JSON structure:\n\n{                                                                                                                                                                                                                                             \n    \"workflow_name\": \"string\",                                                              \n    \"workflow_description\": \"string\",                                                                                                                                                                                                           \n    \"job_types\": [\"string\"],                                                                                                                                                                                                                    \n    \"steps\": [                                                                                                                                                                                                                                  \n      {                                                                                                        \n        \"step_name\": \"string\",\n        \"sequence\": 1,\n        \"role_mentioned\": \"string or null\",\n        \"action_phrases\": [\n          {\n            \"phrase\": \"customer's original words\",\n            \"context\": \"what this action accomplishes\",\n            \"confidence\": 0.9,\n            \"suggested_type\": \"ClearPath action type from knowledge base\"\n          }\n        ],\n        \"information_needs\": [\n          {\n            \"phrase\": \"customer's original words\",\n            \"context\": \"why they need this info\",\n            \"confidence\": 0.9,\n            \"suggested_type\": \"ClearPath widget ID from knowledge base\"\n          }\n        ]\n      }\n    ],\n    \"metadata\": {\n      \"industry\": \"string\",\n      \"company_size\": \"string\",\n      \"complexity\": \"simple | moderate | complex\"\n    }\n  }\n\n---\n\n## Output Requirements\n\n1. Output ONLY valid JSON\n2. Preserve the customer's original phrase — don't modify it\n3. The suggested_type must come from querying the knowledge base\n4. Confidence reflects how strong the match is (0.9+ for exact matches, lower for fuzzy)\n5. If no good match exists, set suggested_type to null and confidence below 0.5",
+          "maxIterations": 20
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -656,
+        64
+      ],
+      "id": "e40fe711-6822-4b6f-b525-93d985d99f3e",
+      "name": "Relational Agent"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://untattered-carmina-nonpropitiable.ngrok-free.dev/generate",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.output }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "f7cf14e4-2cce-4f2f-883a-a7607837619b",
+      "name": "Generate XLSX",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        0,
+        64
+      ]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{                                                                                                                                                                                                                                             \n    \"workflow_name\": \"string\",                                                              \n    \"workflow_description\": \"string\",                                                                                                                                                                                                           \n    \"job_types\": [\"string\"],                                                                                                                                                                                                                    \n    \"steps\": [                                                                                                                                                                                                                                  \n      {                                                                                                        \n        \"step_name\": \"string\",\n        \"sequence\": 1,\n        \"role_mentioned\": \"string or null\",\n        \"action_phrases\": [\n          {\n            \"phrase\": \"customer's original words\",\n            \"context\": \"what this action accomplishes\",\n            \"confidence\": 0.9,\n            \"suggested_type\": \"ClearPath action type from knowledge base\"\n          }\n        ],\n        \"information_needs\": [\n          {\n            \"phrase\": \"customer's original words\",\n            \"context\": \"why they need this info\",\n            \"confidence\": 0.9,\n            \"suggested_type\": \"ClearPath widget ID from knowledge base\"\n          }\n        ]\n      }\n    ],\n    \"metadata\": {\n      \"industry\": \"string\",\n      \"company_size\": \"string\",\n      \"complexity\": \"simple | moderate | complex\"\n    }\n  }"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -64,
+        288
+      ],
+      "id": "b22939fe-fcc7-4d21-ac89-598e4bf1e2d8",
+      "name": "Structured Output Parser"
+    }
+  ],
+  "pinData": {
+    "Extract Report JSON": [
+      {
+        "json": {
+          "output": "{\"workflow_name\":\"Plumbing Service\",\"job_types_covered\":[\"All plumbing jobs - service calls, repairs, installations\"],\"problems_to_solve\":[\"Techs forgetting to clock out\",\"Ensuring consistent process from arrival to payment\"],\"restriction_preference\":\"Guided with enforcement (must clock out to complete)\",\"statuses\":[{\"name\":\"Job Created\",\"order\":1,\"actions\":[\"Dispatcher sends confirmation text to customer\"],\"widgets\":[\"Job details\",\"Customer contact info\",\"Confirmation text status (so tech can see it was sent)\"],\"edge_cases\":[],\"transitions_to\":[\"On The Way\"],\"notes\":\"This is primarily a dispatcher/office step. Tech visibility needed for confirmation text.\"},{\"name\":\"On The Way\",\"order\":2,\"actions\":[\"Clock in\",\"Send 'on the way' text to customer\"],\"widgets\":[\"Job details\",\"Customer contact info\",\"Customer address/navigation\"],\"edge_cases\":[],\"transitions_to\":[\"In Progress\"],\"notes\":\"Drive time tracking starts automatically when this status is set.\"},{\"name\":\"In Progress\",\"order\":3,\"actions\":[\"Assess the issue\",\"Take before photos\",\"Write up findings in job notes\",\"If simple fix: do the repair\",\"If bigger job: create estimate, get customer approval, then do the work\"],\"widgets\":[\"Job details\",\"Customer contact info\",\"Job notes\",\"Photos\",\"Estimates\"],\"edge_cases\":[{\"scenario\":\"Bigger job requiring estimate\",\"handling\":\"Tech creates estimate on the spot, customer approves in person, then tech proceeds with work\"}],\"transitions_to\":[\"Wrapping Up\"],\"notes\":\"This is the main work phase. Estimate workflow happens within this status.\"},{\"name\":\"Wrapping Up\",\"order\":4,\"actions\":[\"Take after photos\",\"Create invoice\",\"Collect payment\",\"If cannot collect payment: add note for office to handle\",\"Send 'thank you' text to customer\"],\"widgets\":[\"Job details\",\"Customer contact info\",\"Photos\",\"Invoice\",\"Job notes\"],\"edge_cases\":[{\"scenario\":\"Cannot collect payment on site\",\"handling\":\"Tech adds a note, leaves invoice unpaid, office follows up later\"}],\"transitions_to\":[\"Complete\"],\"notes\":\"\"},{\"name\":\"Complete\",\"order\":5,\"actions\":[\"Clock out (required before marking complete)\"],\"widgets\":[\"Job summary\",\"Time tracking summary\"],\"edge_cases\":[],\"transitions_to\":[],\"notes\":\"Tech must clock out to complete. This enforces the clock-out step they often forget.\"}],\"existing_templates_mentioned\":[\"'On the way' text template\",\"'Thank you' text template\",\"Confirmation text template\"],\"forms_mentioned\":[],\"confidence_notes\":{\"high_confidence\":[\"Status sequence\",\"Clock in/out requirements\",\"Text message triggers\",\"Photo requirements\",\"Estimate-on-site workflow\",\"Payment collection with office fallback\"],\"medium_confidence\":[\"Exact widget needs per status (inferred from context)\"],\"gaps_or_unknowns\":[\"Whether drive time tracking requires any specific FieldPulse configuration\",\"Whether 'Job Created' should be visible to techs at all or just office\"]},\"customer_language\":{\"clock_in\":\"clock in\",\"clock_out\":\"clock out\",\"on_the_way_text\":\"'on the way' text\",\"thank_you_text\":\"'thank you' text\",\"before_photos\":\"before photos\",\"after_photos\":\"after photos\",\"write_up_findings\":\"write up what they find\",\"assess_issue\":\"assess the issue\"}}"
+        },
+        "pairedItem": {
+          "item": 0
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When chat message received": {
+      "main": [
+        [
+          {
+            "node": "Discovery Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Discovery Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Discovery Agent": {
+      "main": [
+        [
+          {
+            "node": "Is Final Report?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Discovery Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Report JSON": {
+      "main": [
+        [
+          {
+            "node": "Relational Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Final Report?": {
+      "main": [
+        [
+          {
+            "node": "Extract Report JSON",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenRouter Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Relational Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Postgres PGVector Store": {
+      "ai_tool": [
+        [
+          {
+            "node": "Relational Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ExecuteQuery graphDb in Neo4j": {
+      "ai_tool": [
+        [
+          {
+            "node": "Relational Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Postgres PGVector Store",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Relational Agent": {
+      "main": [
+        [
+          {
+            "node": "Generate XLSX",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Relational Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "availableInMCP": false,
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "59c7dca6-ed12-4cef-9179-fb71d1c95782",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "e08d07deaa5d6ec6567fa693f69574e0d419f378e444fd81a7fbecdc45257160"
+  },
+  "id": "BI99DNzGGBJsRYg68IVQ0",
+  "tags": []
+}

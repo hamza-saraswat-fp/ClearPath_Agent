@@ -25,11 +25,16 @@ dependencies = [
     "click>=8.0.0",
     "rich>=13.0.0",
     "pyyaml>=6.0.0",
+    "fastapi>=0.104.0",
+    "uvicorn[standard]>=0.24.0",
+    "httpx>=0.25.0",
 ]
 
 [project.scripts]
 clearpath-ingest = "clearpath_agent.cli.ingest:main"
 clearpath-build = "clearpath_agent.cli.build:main"
+clearpath-api = "clearpath_agent.api.main:run_server"
+clearpath-gong = "clearpath_agent.cli.gong:main"
 
 [project.optional-dependencies]
 dev = [
