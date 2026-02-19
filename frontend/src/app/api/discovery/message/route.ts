@@ -106,9 +106,6 @@ export async function POST(request: Request) {
     const discoveryPrompt = buildDiscoveryPrompt(
       session.businessContext,
       conversationHistory,
-      session.coverage.dataPoints,
-      session.coverage.areas,
-      session.coverage.specificGaps,
       userTurnCount
     );
 
