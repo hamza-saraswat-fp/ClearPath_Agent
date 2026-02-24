@@ -1,5 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
-import type { DiscoverySession, CoverageState, ConversationMessage, BusinessContext, Preferences, DiscoveryReport } from "@/types/discovery";
+import type { DiscoverySession, FormDrivenState, ConversationMessage, BusinessContext, DiscoveryReport } from "@/types/discovery";
+import type { FormState } from "@/lib/form-schema";
+import { FORM_SCHEMA, initializeFormState } from "@/lib/form-schema";
 
 // ============================================================
 // Supabase Client + Session CRUD
@@ -15,9 +17,8 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 //   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
 //   phase TEXT NOT NULL DEFAULT 'business_context',
 //   business_context JSONB NOT NULL,
-//   coverage JSONB NOT NULL DEFAULT '{"areas":{},"dataPoints":{},"specificGaps":[],"customerLanguage":{}}',
+//   coverage JSONB NOT NULL DEFAULT '{"formState":{},"inferred":{},"customerLanguage":{}}',
 //   messages JSONB NOT NULL DEFAULT '[]',
-//   preferences JSONB,
 //   report JSONB,
 //   created_at TIMESTAMPTZ DEFAULT NOW(),
 //   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -29,18 +30,9 @@ const TABLE = "discovery_sessions";
  * Create a new discovery session.
  */
 export async function createSession(businessContext: BusinessContext): Promise<DiscoverySession> {
-  const initialCoverage: CoverageState = {
-    areas: {
-      intake: "uncovered",
-      en_route: "uncovered",
-      arrival: "uncovered",
-      during_work: "uncovered",
-      completion: "uncovered",
-      edge_cases: "uncovered",
-    },
-    dataPoints: {},
+  const initialCoverage: FormDrivenState = {
+    formState: initializeFormState(FORM_SCHEMA),
     inferred: {},
-    specificGaps: [],
     customerLanguage: {},
   };
 
@@ -80,7 +72,7 @@ export async function getSession(sessionId: string): Promise<DiscoverySession | 
 export async function updateSessionAfterMessage(
   sessionId: string,
   newMessages: ConversationMessage[],
-  coverage: CoverageState
+  coverage: FormDrivenState
 ): Promise<void> {
   // Get current messages first
   const session = await getSession(sessionId);
@@ -101,22 +93,30 @@ export async function updateSessionAfterMessage(
 }
 
 /**
- * Save preferences (Phase 3).
+ * Save form state (Phase 3 — form review complete, moving to confirmation).
  */
-export async function savePreferences(
+export async function saveFormState(
   sessionId: string,
-  preferences: Preferences
+  formState: FormState
 ): Promise<void> {
+  // Get current session to preserve inferred + customerLanguage
+  const session = await getSession(sessionId);
+  if (!session) throw new Error("Session not found");
+
+  const updatedCoverage: FormDrivenState = {
+    ...session.coverage,
+    formState,
+  };
+
   const { error } = await supabase
     .from(TABLE)
     .update({
-      phase: "confirmation",
-      preferences,
+      coverage: updatedCoverage,
       updated_at: new Date().toISOString(),
     })
     .eq("id", sessionId);
 
-  if (error) throw new Error(`Failed to save preferences: ${error.message}`);
+  if (error) throw new Error(`Failed to save form state: ${error.message}`);
 }
 
 /**
@@ -130,6 +130,7 @@ export async function saveReport(
     .from(TABLE)
     .update({
       report,
+      phase: "confirmation",
       updated_at: new Date().toISOString(),
     })
     .eq("id", sessionId);
@@ -145,9 +146,12 @@ function mapRowToSession(row: any): DiscoverySession {
     id: row.id,
     phase: row.phase,
     businessContext: row.business_context,
-    coverage: row.coverage,
-    messages: row.messages,
-    preferences: row.preferences || undefined,
+    coverage: {
+      formState: row.coverage?.formState ?? initializeFormState(FORM_SCHEMA),
+      inferred: row.coverage?.inferred ?? {},
+      customerLanguage: row.coverage?.customerLanguage ?? {},
+    },
+    messages: row.messages ?? [],
     report: row.report || undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,

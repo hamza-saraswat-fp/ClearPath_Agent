@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
 import { chatCompletion, MODELS } from "@/lib/openrouter";
-import { getSession, savePreferences, saveReport } from "@/lib/supabase";
+import { getSession, saveFormState, saveReport } from "@/lib/supabase";
 import { buildReportAssemblyPrompt, formatConversationHistory } from "@/lib/prompts";
+import logger from "@/lib/logger";
 import type { AssembleReportRequest, AssembleReportResponse, DiscoveryReport } from "@/types/discovery";
 
 export async function POST(request: Request) {
   try {
     const body: AssembleReportRequest = await request.json();
-    const { sessionId, preferences } = body;
+    const { sessionId, formState } = body;
 
-    if (!sessionId || !preferences) {
+    if (!sessionId || !formState) {
       return NextResponse.json(
-        { error: "Missing sessionId or preferences" },
+        { error: "Missing sessionId or formState" },
         { status: 400 }
       );
     }
@@ -22,21 +23,36 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
 
-    // Save preferences
-    await savePreferences(sessionId, preferences);
+    logger.info({ sessionId }, "Starting report assembly");
 
-    // Build the full transcript
-    const fullTranscript = formatConversationHistory(
-      session.messages.map((m) => ({ role: m.role, content: m.content }))
-    );
+    // Extract narrative context from form-direct path (not schema fields)
+    const narrativeStages = (formState._narrative_stages as string) || "";
+    const narrativeDetails = (formState._narrative_details as string) || "";
+    delete formState._narrative_stages;
+    delete formState._narrative_details;
 
-    // Build assembly prompt
+    // Save form state (user may have edited fields in the review form)
+    await saveFormState(sessionId, formState);
+
+    // Build transcript — use narrative fields if present, otherwise session messages
+    let fullTranscript: string;
+    if (narrativeStages || narrativeDetails) {
+      const parts: string[] = [];
+      if (narrativeStages) parts.push(`Customer: ${narrativeStages}`);
+      if (narrativeDetails) parts.push(`Customer: ${narrativeDetails}`);
+      fullTranscript = parts.join("\n\n");
+    } else {
+      fullTranscript = formatConversationHistory(
+        session.messages.map((m) => ({ role: m.role, content: m.content }))
+      );
+    }
+
+    // Build assembly prompt — use formState from request (user-edited), inferred from session
     const assemblyPrompt = buildReportAssemblyPrompt(
       session.businessContext,
       fullTranscript,
-      session.coverage.dataPoints,
-      session.coverage.inferred || {},
-      preferences
+      formState,
+      session.coverage.inferred || {}
     );
 
     // Call Claude Sonnet via OpenRouter to assemble the report
@@ -54,7 +70,14 @@ export async function POST(request: Request) {
       // Try to extract JSON from the response if it has surrounding text
       const jsonMatch = assemblyText.match(/\{[\s\S]*\}/);
       if (jsonMatch) {
-        report = JSON.parse(jsonMatch[0]);
+        try {
+          report = JSON.parse(jsonMatch[0]);
+        } catch {
+          return NextResponse.json(
+            { error: "Failed to parse discovery report from AI response" },
+            { status: 500 }
+          );
+        }
       } else {
         return NextResponse.json(
           { error: "Failed to parse discovery report from AI response" },
@@ -71,6 +94,8 @@ export async function POST(request: Request) {
       );
     }
 
+    logger.info({ sessionId, statusCount: report.statuses.length }, "Report assembled");
+
     // Save report to Supabase
     await saveReport(sessionId, report);
 
@@ -84,7 +109,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error("Failed to assemble report:", error);
+    logger.error({ err: error }, "Failed to assemble report");
     return NextResponse.json(
       { error: "Failed to assemble discovery report" },
       { status: 500 }
@@ -95,25 +120,26 @@ export async function POST(request: Request) {
 function buildSummary(report: DiscoveryReport): string {
   const lines: string[] = [];
 
-  lines.push(`**${report.workflow_name}**`);
-  lines.push(`Job types: ${report.job_types_covered.join(", ")}`);
-  lines.push(`Restriction: ${report.restriction_preference}`);
+  lines.push(report.workflow_name);
+  lines.push(`Job types: ${report.job_types_covered?.join(", ") ?? "—"}`);
+  lines.push(`Tech can exit Focus View: ${report.can_tech_exit_focus_view ? "Yes" : "No"}`);
+  lines.push(`Tech can change status: ${report.can_tech_change_status ? "Yes" : "No"}`);
   lines.push("");
-  lines.push("**Workflow Statuses:**");
+  lines.push("Workflow Statuses:");
 
   for (const status of report.statuses) {
-    lines.push(`${status.order}. **${status.name}**`);
-    if (status.actions.length > 0) {
+    lines.push(`${status.order}. ${status.name}`);
+    if (status.actions?.length > 0) {
       lines.push(`   Actions: ${status.actions.join(", ")}`);
     }
-    if (status.transitions_to.length > 0) {
+    if (status.transitions_to?.length > 0) {
       lines.push(`   → ${status.transitions_to.join(", ")}`);
     }
   }
 
-  if (report.confidence_notes.gaps_or_unknowns.length > 0) {
+  if (report.confidence_notes?.gaps_or_unknowns?.length > 0) {
     lines.push("");
-    lines.push("**Gaps/Unknowns:**");
+    lines.push("Gaps/Unknowns:");
     for (const gap of report.confidence_notes.gaps_or_unknowns) {
       lines.push(`- ${gap}`);
     }

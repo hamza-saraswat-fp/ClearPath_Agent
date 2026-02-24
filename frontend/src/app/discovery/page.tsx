@@ -5,17 +5,17 @@ import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import type {
   ConversationMessage,
-  CoverageAreaId,
-  CoverageStatus,
   SessionPhase,
   BusinessContext,
-  Preferences,
+  FormDrivenState,
   DiscoveryReport,
 } from "@/types/discovery";
-import { COVERAGE_AREAS } from "@/lib/coverage-areas";
-import { ProgressBar } from "@/components/discovery/ProgressBar";
+import { FORM_SCHEMA, initializeFormState } from "@/lib/form-schema";
+import type { FormState } from "@/lib/form-schema";
+
 import { ChatInterface } from "@/components/discovery/ChatInterface";
-import { PreferencesForm } from "@/components/phases/PreferencesForm";
+import { FormReview } from "@/components/phases/FormReview";
+import { ChoiceMenu } from "@/components/phases/ChoiceMenu";
 import { ConfirmationView } from "@/components/phases/ConfirmationView";
 import { ClearPathLogo } from "@/components/shared/ClearPathLogo";
 
@@ -28,44 +28,42 @@ interface DiscoveryState {
   businessContext: BusinessContext | null;
   phase: SessionPhase;
   messages: ConversationMessage[];
-  coverageStatuses: Record<CoverageAreaId, CoverageStatus>;
+  formState: FormState;
   isLoading: boolean;
   isAssembling: boolean;
   isSubmitting: boolean;
   report: DiscoveryReport | null;
   reportSummary: string;
   error: string | null;
+  flowChoice: "chat" | "form_direct" | null;
 }
 
 type DiscoveryAction =
   | { type: "INIT_SESSION"; sessionId: string; businessContext: BusinessContext; firstMessage: ConversationMessage }
   | { type: "ADD_USER_MESSAGE"; message: ConversationMessage }
-  | { type: "ADD_ASSISTANT_MESSAGE"; message: ConversationMessage; coverageUpdate: Record<CoverageAreaId, CoverageStatus>; isComplete: boolean }
+  | { type: "REMOVE_LAST_USER_MESSAGE" }
+  | { type: "ADD_ASSISTANT_MESSAGE"; message: ConversationMessage; formStateUpdate: FormDrivenState; isComplete: boolean }
   | { type: "SET_LOADING"; loading: boolean }
   | { type: "SET_PHASE"; phase: SessionPhase }
   | { type: "SET_ASSEMBLING"; assembling: boolean }
   | { type: "SET_SUBMITTING"; submitting: boolean }
   | { type: "SET_REPORT"; report: DiscoveryReport; summary: string }
+  | { type: "SET_FLOW_CHOICE"; choice: "chat" | "form_direct" }
   | { type: "SET_ERROR"; error: string | null };
-
-const initialCoverageStatuses: Record<CoverageAreaId, CoverageStatus> =
-  Object.fromEntries(COVERAGE_AREAS.map((a) => [a.id, "uncovered"])) as Record<
-    CoverageAreaId,
-    CoverageStatus
-  >;
 
 const initialState: DiscoveryState = {
   sessionId: null,
   businessContext: null,
   phase: "discovery",
   messages: [],
-  coverageStatuses: initialCoverageStatuses,
+  formState: initializeFormState(FORM_SCHEMA),
   isLoading: false,
   isAssembling: false,
   isSubmitting: false,
   report: null,
   reportSummary: "",
   error: null,
+  flowChoice: null,
 };
 
 function discoveryReducer(
@@ -79,20 +77,35 @@ function discoveryReducer(
         sessionId: action.sessionId,
         businessContext: action.businessContext,
         messages: [action.firstMessage],
-        phase: "discovery",
+        phase: "choice",
+        flowChoice: null,
       };
     case "ADD_USER_MESSAGE":
       return {
         ...state,
         messages: [...state.messages, action.message],
       };
+    case "REMOVE_LAST_USER_MESSAGE": {
+      const idx = state.messages.findLastIndex((m) => m.role === "user");
+      if (idx === -1) return state;
+      return {
+        ...state,
+        messages: [...state.messages.slice(0, idx), ...state.messages.slice(idx + 1)],
+      };
+    }
     case "ADD_ASSISTANT_MESSAGE":
       return {
         ...state,
         messages: [...state.messages, action.message],
-        coverageStatuses: action.coverageUpdate,
-        phase: action.isComplete ? "preferences" : state.phase,
+        formState: { ...state.formState, ...action.formStateUpdate.formState },
+        phase: action.isComplete ? "form_review" : state.phase,
         isLoading: false,
+      };
+    case "SET_FLOW_CHOICE":
+      return {
+        ...state,
+        flowChoice: action.choice,
+        phase: action.choice === "chat" ? "discovery" : "form_review",
       };
     case "SET_LOADING":
       return { ...state, isLoading: action.loading };
@@ -111,7 +124,7 @@ function discoveryReducer(
         isAssembling: false,
       };
     case "SET_ERROR":
-      return { ...state, error: action.error, isLoading: false };
+      return { ...state, error: action.error, isLoading: false, isAssembling: false, isSubmitting: false };
     default:
       return state;
   }
@@ -148,7 +161,7 @@ export default function DiscoveryPage() {
   // Send message
   const handleSendMessage = useCallback(
     async (message: string) => {
-      if (!state.sessionId) return;
+      if (!state.sessionId || state.isLoading) return;
 
       const userMsg: ConversationMessage = {
         id: `user-${Date.now()}`,
@@ -176,15 +189,16 @@ export default function DiscoveryPage() {
         dispatch({
           type: "ADD_ASSISTANT_MESSAGE",
           message: data.assistantMessage,
-          coverageUpdate: data.coverageUpdate.areas,
+          formStateUpdate: data.formStateUpdate,
           isComplete: data.isComplete,
         });
       } catch (err) {
         console.error("Message error:", err);
+        dispatch({ type: "REMOVE_LAST_USER_MESSAGE" });
         dispatch({ type: "SET_ERROR", error: "Failed to send message. Please try again." });
       }
     },
-    [state.sessionId]
+    [state.sessionId, state.isLoading]
   );
 
   // Quick select
@@ -195,9 +209,9 @@ export default function DiscoveryPage() {
     [handleSendMessage]
   );
 
-  // Preferences submit
-  const handlePreferencesSubmit = useCallback(
-    async (preferences: Preferences) => {
+  // Form review submit
+  const handleFormReviewSubmit = useCallback(
+    async (formState: FormState) => {
       if (!state.sessionId) return;
       dispatch({ type: "SET_ASSEMBLING", assembling: true });
 
@@ -207,7 +221,7 @@ export default function DiscoveryPage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             sessionId: state.sessionId,
-            preferences,
+            formState,
           }),
         });
 
@@ -257,8 +271,8 @@ export default function DiscoveryPage() {
 
   // Edit — go back to chat
   const handleEdit = useCallback(() => {
-    dispatch({ type: "SET_PHASE", phase: "discovery" });
-  }, []);
+    dispatch({ type: "SET_PHASE", phase: state.flowChoice === "form_direct" ? "form_review" : "discovery" });
+  }, [state.flowChoice]);
 
   // Guard: no session loaded yet
   if (!state.sessionId) {
@@ -287,9 +301,6 @@ export default function DiscoveryPage() {
             </div>
           )}
         </div>
-        {state.phase === "discovery" && (
-          <ProgressBar coverageStatuses={state.coverageStatuses} />
-        )}
       </header>
 
       {/* Error toast */}
@@ -315,6 +326,22 @@ export default function DiscoveryPage() {
       {/* Main content — phase-dependent */}
       <main className="flex-1 flex flex-col overflow-hidden">
         <AnimatePresence mode="wait">
+          {state.phase === "choice" && state.businessContext && (
+            <motion.div
+              key="choice"
+              initial={{ opacity: 0, y: 16 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.3 }}
+              className="flex-1 flex items-center justify-center overflow-hidden"
+            >
+              <ChoiceMenu
+                businessContext={state.businessContext}
+                onChoice={(choice) => dispatch({ type: "SET_FLOW_CHOICE", choice })}
+              />
+            </motion.div>
+          )}
+
           {state.phase === "discovery" && (
             <motion.div
               key="discovery"
@@ -333,18 +360,21 @@ export default function DiscoveryPage() {
             </motion.div>
           )}
 
-          {state.phase === "preferences" && (
+          {state.phase === "form_review" && (
             <motion.div
-              key="preferences"
+              key="form_review"
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -20 }}
               transition={{ duration: 0.3 }}
               className="flex-1 overflow-y-auto"
             >
-              <PreferencesForm
-                onSubmit={handlePreferencesSubmit}
+              <FormReview
+                formState={state.formState}
+                onSubmit={handleFormReviewSubmit}
                 isSubmitting={state.isAssembling}
+                isFormDirect={state.flowChoice === "form_direct"}
+                businessContext={state.businessContext}
               />
             </motion.div>
           )}

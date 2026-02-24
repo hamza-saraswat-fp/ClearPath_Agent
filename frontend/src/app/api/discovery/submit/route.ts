@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import logger from "@/lib/logger";
 import type { SubmitReportRequest, SubmitReportResponse } from "@/types/discovery";
 
 export async function POST(request: Request) {
@@ -21,6 +22,8 @@ export async function POST(request: Request) {
       );
     }
 
+    logger.info({ sessionId }, "Submitting report to webhook");
+
     // POST the discovery report to the n8n webhook
     const webhookResponse = await fetch(webhookUrl, {
       method: "POST",
@@ -33,7 +36,7 @@ export async function POST(request: Request) {
 
     if (!webhookResponse.ok) {
       const errorText = await webhookResponse.text();
-      console.error("Webhook error:", webhookResponse.status, errorText);
+      logger.error({ sessionId, status: webhookResponse.status, errorText }, "Webhook error");
       return NextResponse.json(
         { error: `Webhook returned ${webhookResponse.status}` },
         { status: 502 }
@@ -48,6 +51,8 @@ export async function POST(request: Request) {
       webhookData = responseText;
     }
 
+    logger.info({ sessionId }, "Report submitted to webhook");
+
     const response: SubmitReportResponse = {
       success: true,
       webhookResponse: webhookData,
@@ -55,7 +60,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error("Failed to submit report:", error);
+    logger.error({ err: error }, "Failed to submit report");
     return NextResponse.json(
       { error: "Failed to submit discovery report" },
       { status: 500 }

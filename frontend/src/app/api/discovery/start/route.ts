@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createSession, updateSessionAfterMessage } from "@/lib/supabase";
 import { buildOpeningMessage } from "@/lib/prompts";
+import logger from "@/lib/logger";
 import type { StartSessionRequest, StartSessionResponse, ConversationMessage } from "@/types/discovery";
 
 export async function POST(request: Request) {
@@ -35,6 +36,8 @@ export async function POST(request: Request) {
     // Persist the opening message
     await updateSessionAfterMessage(session.id, [firstMessage], session.coverage);
 
+    logger.info({ sessionId: session.id, businessContext }, "Session started");
+
     const response: StartSessionResponse = {
       sessionId: session.id,
       firstMessage,
@@ -42,7 +45,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error("Failed to start session:", error);
+    logger.error({ err: error }, "Failed to start session");
     return NextResponse.json(
       { error: "Failed to start discovery session" },
       { status: 500 }

@@ -2,71 +2,13 @@
 // ClearPath Discovery Chat — Core TypeScript Types
 // ============================================================
 
-// --- Coverage Areas (behind-the-scenes tracking) ---
+import type { FormFieldValue, FormState } from "@/lib/form-schema";
 
-export type CoverageAreaId =
-  | "intake"
-  | "en_route"
-  | "arrival"
-  | "during_work"
-  | "completion"
-  | "edge_cases";
+// --- Form-Driven State (replaces CoverageState) ---
 
-export type CoverageStatus = "uncovered" | "partial" | "covered";
-
-export interface CoverageDataPoints {
-  intake?: {
-    job_source?: string;
-    job_creator?: string;
-    info_captured_at_intake?: string;
-    scheduling_model?: string;
-  };
-  en_route?: {
-    customer_notification?: string;
-    clock_in_timing?: string;
-    travel_tracking?: string;
-  };
-  arrival?: {
-    first_action?: string;
-    pre_work_requirements?: string[];
-  };
-  during_work?: {
-    work_description?: string;
-    forms_checklists?: string;
-    photo_requirements?: string;
-    parts_materials?: string;
-    time_tracking?: string;
-    estimates_or_invoices_onsite?: string;
-    info_needed_on_screen?: string[];
-  };
-  completion?: {
-    completion_requirements?: string[];
-    signature?: string;
-    handoff_to_office?: string;
-    invoice_process?: string;
-    payment_collection?: string;
-  };
-  edge_cases?: {
-    common_mistakes?: string;
-    management_frustrations?: string;
-    parts_not_available?: string;
-    customer_absent?: string;
-    multi_day_jobs?: string;
-    multiple_job_types?: string;
-  };
-  additional_context?: {
-    compliance_requirements?: string;
-    asset_equipment_tracking?: string;
-    special_processes?: string;
-    additional_details?: string;
-  };
-}
-
-export interface CoverageState {
-  areas: Record<CoverageAreaId, CoverageStatus>;
-  dataPoints: CoverageDataPoints;
+export interface FormDrivenState {
+  formState: FormState;
   inferred: Record<string, string>;
-  specificGaps: string[];
   customerLanguage: Record<string, string>;
 }
 
@@ -87,7 +29,7 @@ export interface QuickSelectOption {
 
 // --- Session ---
 
-export type SessionPhase = "business_context" | "discovery" | "preferences" | "confirmation";
+export type SessionPhase = "business_context" | "choice" | "discovery" | "form_review" | "confirmation";
 
 export interface BusinessContext {
   companyName: string;
@@ -96,19 +38,12 @@ export interface BusinessContext {
   jobType: string;
 }
 
-export interface Preferences {
-  restrictionPreference: "guided" | "flexible";
-  customerTextOnTheWay: boolean | null;
-  existingForms: string[];
-}
-
 export interface DiscoverySession {
   id: string;
   phase: SessionPhase;
   businessContext: BusinessContext;
-  coverage: CoverageState;
+  coverage: FormDrivenState;
   messages: ConversationMessage[];
-  preferences?: Preferences;
   report?: DiscoveryReport;
   createdAt: string;
   updatedAt: string;
@@ -118,9 +53,8 @@ export interface DiscoverySession {
 
 export interface DiscoveryLLMResponse {
   extraction: {
-    data_points: Partial<CoverageDataPoints>;
+    fields: Record<string, FormFieldValue>;
     inferred: Record<string, string>;
-    specific_gaps: string[];
     customer_language: Record<string, string>;
   };
   follow_up: string;
@@ -146,14 +80,14 @@ export interface SendMessageRequest {
 }
 
 export interface SendMessageResponse {
-  coverageUpdate: CoverageState;
+  formStateUpdate: FormDrivenState;
   assistantMessage: ConversationMessage;
   isComplete: boolean;
 }
 
 export interface AssembleReportRequest {
   sessionId: string;
-  preferences: Preferences;
+  formState: FormState;
 }
 
 export interface AssembleReportResponse {
@@ -188,7 +122,9 @@ export interface DiscoveryReport {
   workflow_name: string;
   job_types_covered: string[];
   problems_to_solve: string[];
-  restriction_preference: string;
+  can_tech_exit_focus_view: boolean;
+  can_tech_change_status: boolean;
+  spanish_speaking_techs: boolean;
   statuses: DiscoveryReportStatus[];
   existing_templates_mentioned: string[];
   forms_mentioned: string[];

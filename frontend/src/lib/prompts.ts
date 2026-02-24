@@ -1,4 +1,6 @@
-import type { BusinessContext, CoverageDataPoints, Preferences } from "@/types/discovery";
+import type { BusinessContext } from "@/types/discovery";
+import { FORM_SCHEMA, buildFormStatusForPrompt } from "@/lib/form-schema";
+import type { FormState } from "@/lib/form-schema";
 
 // ============================================================
 // AI Prompt Templates
@@ -12,7 +14,8 @@ import type { BusinessContext, CoverageDataPoints, Preferences } from "@/types/d
 export function buildDiscoveryPrompt(
   ctx: BusinessContext,
   conversationHistory: string,
-  turnCount: number
+  turnCount: number,
+  formState: FormState
 ): string {
   return `You are ClearPath, a workflow discovery agent for FieldPulse. You're having a natural conversation with a business owner to understand how their team handles jobs — so their software can be configured to match how they actually work.
 
@@ -36,24 +39,25 @@ ${conversationHistory}
 
 Turn count: ${turnCount}
 
+FORM STATUS (what the system has captured so far):
+${buildFormStatusForPrompt(FORM_SCHEMA, formState)}
+Use this as a guide — not every field is relevant for every business. Focus on gaps that would change what gets built.
+
 ═══════════════════════════════════════════
 TASK 1 — EXTRACT
 ═══════════════════════════════════════════
 
-Parse the customer's LATEST message and extract NEW information into the fields below. Only include fields with genuinely new info.
+Parse the customer's LATEST message and extract NEW information into form fields. Only include fields with genuinely new info.
 
-The first message is often a comprehensive narrative. When this happens, extract aggressively across ALL areas in one pass. If they said "tech fills out a form with parts, time, and gets a signature" — that covers forms_checklists, time_tracking, signature, and completion_requirements. Extract all of it.
+The first message is often a comprehensive narrative. When this happens, extract aggressively across ALL fields in one pass. If they said "tech fills out a form with parts, time, and gets a signature" — that covers forms_checklists, completion_requirements, signature_required. Extract all of it.
 
 If something is strongly implied but not explicitly stated, add it to "inferred" with brief reasoning. Don't guess — only infer what's clearly implied.
 
-Extract into these areas using exactly these field names:
-- INTAKE: job_source, job_creator, info_captured_at_intake, scheduling_model
-- EN_ROUTE: customer_notification, clock_in_timing, travel_tracking
-- ARRIVAL: first_action, pre_work_requirements
-- DURING_WORK: work_description, forms_checklists, photo_requirements, parts_materials, time_tracking, estimates_or_invoices_onsite, info_needed_on_screen
-- COMPLETION: completion_requirements, signature, handoff_to_office, invoice_process, payment_collection
-- EDGE_CASES: common_mistakes, management_frustrations, parts_not_available, customer_absent, multi_day_jobs, multiple_job_types
-- ADDITIONAL_CONTEXT: compliance_requirements, asset_equipment_tracking, special_processes, additional_details
+Extract into the "fields" object using the exact field IDs shown in FORM STATUS above. Return the correct value type for each field:
+- toggle fields → true or false
+- dropdown fields → one of the option values listed in brackets
+- multi-select / checkboxes fields → array of option values, e.g. ["phone", "referral"]
+- text / textarea fields → string
 
 ═══════════════════════════════════════════
 TASK 2 — RESPOND
@@ -68,11 +72,13 @@ RULES:
 4. ONE question per turn. No lists, no multi-part questions.
 5. Discover, don't consult. No advice, opinions, or feature suggestions.
 6. Suggest 2-3 quick-select chips — realistic answers to your question. Short "label" (2-4 words) + full "value" sentence. Specific to what you asked, not generic. Empty array if complete.
+7. Use the FORM STATUS as a guide, not a checklist. Some fields won't apply to every business — skip what's irrelevant and focus on what matters for this customer's workflow.
 
 COMPLETION:
 - Set model_thinks_complete to true when: core flow from intake through completion is covered, you have some edge case awareness, and turn count is 5+.
 - Don't chase every optional field. 4-6 focused turns beats 12 exhaustive ones. When in doubt, wrap up.
 - Hard ceiling: if turn count reaches 8 and core flow is covered, mark complete. The assembly step flags unknowns.
+- Any fields left unfilled will be shown to the user in a review form — they can fill in anything you missed.
 
 ═══════════════════════════════════════════
 OUTPUT — valid JSON only, no markdown
@@ -80,13 +86,12 @@ OUTPUT — valid JSON only, no markdown
 
 {
   "extraction": {
-    "data_points": {
-      "area_id": { "field_name": "value" }
+    "fields": {
+      "field_id": "value matching field type"
     },
     "inferred": {
-      "area_id.field_name": "brief reasoning"
+      "field_id": "brief reasoning"
     },
-    "specific_gaps": ["config-relevant gap not yet addressed"],
     "customer_language": { "their_phrase": "workflow meaning" }
   },
   "follow_up": "Your response here",
@@ -104,26 +109,38 @@ OUTPUT — valid JSON only, no markdown
 export function buildReportAssemblyPrompt(
   ctx: BusinessContext,
   fullTranscript: string,
-  allDataPoints: CoverageDataPoints,
-  inferred: Record<string, string>,
-  preferences: Preferences
+  formState: FormState,
+  inferred: Record<string, string>
 ): string {
-  return `You are assembling a workflow discovery report from a conversation.
+  const existingForms = (formState.existing_forms as string) || "none mentioned";
+  const spanishSpeaking = formState.spanish_speaking_techs === true ? "Yes" : formState.spanish_speaking_techs === false ? "No" : "not specified";
+  const canExitFocusView = formState.can_tech_exit_focus_view === true ? "Yes" : formState.can_tech_exit_focus_view === false ? "No" : "not specified";
+  const canChangeStatus = formState.can_tech_change_status === true ? "Yes" : formState.can_tech_change_status === false ? "No" : "not specified";
+
+  // Detect form-direct path (no real conversation — only the opening assistant message)
+  const transcriptLines = fullTranscript.trim().split("\n").filter(l => l.trim());
+  const hasConversation = transcriptLines.length > 2;
+
+  const transcriptSection = hasConversation
+    ? `Full conversation transcript:\n${fullTranscript}`
+    : `Note: The user filled the form directly — no conversation took place. Base the report entirely on the extracted form data and user preferences below. For customer_language and problems_to_solve, infer reasonable values from the form data or leave empty.`;
+
+  return `You are assembling a workflow discovery report.
 Business context: ${ctx.companyName}, ${ctx.industry}, ${ctx.companySize}, ${ctx.jobType}
 
-Full conversation transcript:
-${fullTranscript}
+${transcriptSection}
 
-Extracted data points:
-${JSON.stringify(allDataPoints, null, 2)}
+Extracted form data:
+${JSON.stringify(formState, null, 2)}
 
 Inferred data (strongly implied but not explicitly confirmed — flag these in medium_confidence):
 ${JSON.stringify(inferred, null, 2)}
 
 User preferences:
-- Restriction: ${preferences.restrictionPreference}
-- Customer text on the way: ${preferences.customerTextOnTheWay}
-- Existing forms: ${preferences.existingForms.length > 0 ? preferences.existingForms.join(", ") : "none mentioned"}
+- Can tech exit Focus View: ${canExitFocusView}
+- Can tech change status from action button: ${canChangeStatus}
+- Spanish-speaking techs: ${spanishSpeaking}
+- Existing forms: ${existingForms}
 
 Produce the discovery report as JSON matching this exact schema:
 
@@ -131,7 +148,9 @@ Produce the discovery report as JSON matching this exact schema:
   "workflow_name": "string — name the workflow based on the job type",
   "job_types_covered": ["string"],
   "problems_to_solve": ["string — pain points the customer mentioned"],
-  "restriction_preference": "${preferences.restrictionPreference}",
+  "can_tech_exit_focus_view": true,
+  "can_tech_change_status": true,
+  "spanish_speaking_techs": false,
   "statuses": [
     {
       "name": "Status Name",
@@ -162,7 +181,10 @@ Rules:
 - Items from the "inferred" data should go into confidence_notes.medium_confidence
 - Capture anything you're uncertain about in confidence_notes.gaps_or_unknowns
 - Include customer_language mapping their colloquial terms to what they likely mean
-- Typical workflows have 4-8 statuses — don't create too many or too few
+- Typical workflows have 5-10 statuses — don't create too many or too few
+- Not everything is a status. If a customer mentions a step that belongs inside an existing stage (e.g. 'put on boot covers before entering the home'), that is a status instruction, not a new status. Only create a new status when there is a clear phase transition.
+- Target 5-10 statuses. If you have more than 10, consolidate related steps into instructions within existing statuses. If you have fewer than 5, check if you are missing common stages.
+- Parse the "Existing forms" preference value into the existing_templates_mentioned array
 - Output valid JSON only — no markdown, no explanation`;
 }
 
