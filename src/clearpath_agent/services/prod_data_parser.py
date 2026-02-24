@@ -870,10 +870,17 @@ class ProductionDataParser:
         total_files = len(excel_files) + len(csv_files)
         logger.info(f"Found {len(excel_files)} Excel files and {len(csv_files)} CSV files in {directory}")
 
-        # Parse Excel files
+        # Parse Excel files (use TemplateParser for ClearPath import format)
+        from .template_parser import TemplateParser
+
+        template_parser = TemplateParser()
+
         for filepath in excel_files:
             try:
-                workflow = self.parse_excel_file(filepath)
+                if TemplateParser.is_template_format(filepath):
+                    workflow = template_parser.parse_template(filepath)
+                else:
+                    workflow = self.parse_excel_file(filepath)
                 workflows.append(workflow)
             except Exception as e:
                 logger.error(f"Failed to parse {filepath.name}: {e}")

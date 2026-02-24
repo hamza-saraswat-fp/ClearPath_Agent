@@ -22,6 +22,7 @@ from .prod_data_parser import (
     ProductionDataParser,
     StatusConfig,
 )
+from .template_parser import TemplateParser
 from .report_generator import ReportGenerator
 from .vector_store import SearchResult, VectorStore
 
@@ -46,6 +47,8 @@ __all__ = [
     "StatusConfig",
     "ActionButtonConfig",
     "FocusViewConfig",
+    # Template Parser (ClearPath import format)
+    "TemplateParser",
     # Pattern Extractor
     "PatternExtractor",
     "StatusFlow",
